@@ -3,5 +3,6 @@ export const Colors = {
     Black: '#1F2029',
     Grey: '#797979',
     White: '#EDEDED',
+    LightGray: '#D3D3D3',
     Transparent: 'transparent'
 }
