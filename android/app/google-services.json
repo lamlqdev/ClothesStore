@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "799913536954",
+    "project_id": "fashionstore-3d195",
+    "storage_bucket": "fashionstore-3d195.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:799913536954:android:debb76a33e6308403dc183",
+        "android_client_info": {
+          "package_name": "com.clothesstore"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC1E_w3n_Zr0Emdm1klVGXU8qeqRa-74BQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
