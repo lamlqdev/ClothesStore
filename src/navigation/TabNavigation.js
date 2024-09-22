@@ -60,11 +60,7 @@ const Tabs = () => {
                 headerShown: false,
                 tabBarStyle: {
                     position: 'absolute',
-<<<<<<< HEAD
-                    bottom: 15,
-=======
                     bottom: 0,
->>>>>>> tanluong
                     left: 15,
                     right: 15,
                     elevation: 0,
@@ -76,11 +72,7 @@ const Tabs = () => {
             }}
         >
             <Tab.Screen
-<<<<<<< HEAD
-                name="Home"
-=======
                 name="HomeScreen"
->>>>>>> tanluong
                 component={HomeScreen}
                 options={{
                     tabBarIcon: ({ focused }) => (
