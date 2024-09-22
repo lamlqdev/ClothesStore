@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   },
   quantityButton: {
     padding: 8,
-    backgroundColor: Colors.Black,
+    backgroundColor: Colors.Brown,
     borderRadius: 5,
   },
   quantityText: {
