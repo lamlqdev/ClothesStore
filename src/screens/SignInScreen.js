@@ -1,13 +1,17 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
 
-const SignInScreen = ({ navigation }) => {
+const SignInScreen = ({ navigation, onLogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
+  };
+
+  const handleSignIn = () => {
+    onLogin();
   };
 
   return (
@@ -52,7 +56,7 @@ const SignInScreen = ({ navigation }) => {
         </TouchableOpacity>
       </View>
 
-      <TouchableOpacity style={styles.button}>
+      <TouchableOpacity style={styles.button} onPress={handleSignIn}>
         <Text style={styles.buttonText}>Sign In</Text>
       </TouchableOpacity>
 

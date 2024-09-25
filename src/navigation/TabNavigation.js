@@ -2,7 +2,7 @@ import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Colors } from '../constants/colors';
 
-import HomeScreen from '../screens/Home'
+import HomeScreen from '../screens/HomeScreen'
 import CartScreen from '../screens/CartScreen'
 import WishScreen from '../screens/WishScreen'
 import MessageScreen from '../screens/MessageScreen'
@@ -60,7 +60,7 @@ const Tabs = () => {
                 headerShown: false,
                 tabBarStyle: {
                     position: 'absolute',
-                    bottom: 15,
+                    bottom: 0,
                     left: 15,
                     right: 15,
                     elevation: 0,
@@ -72,7 +72,7 @@ const Tabs = () => {
             }}
         >
             <Tab.Screen
-                name="Home"
+                name="HomeScreen"
                 component={HomeScreen}
                 options={{
                     tabBarIcon: ({ focused }) => (

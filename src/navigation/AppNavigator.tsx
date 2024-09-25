@@ -1,37 +1,52 @@
-import React from 'react';
-import { StyleSheet } from 'react-native';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
-import ProductList from '../screens/ProductList';
-import AddProduct from '../screens/AddProduct';
-import EditProduct from '../screens/EditProduct';
-import DeleteProduct from '../screens/DeleteProduct';
+import Tabs from './TabNavigation';
 import SignInScreen from '../screens/SignInScreen';
 import SignUpScreen from '../screens/SignUpScreen';
 import VerifyCodeScreen from '../screens/VerifyCodeScreen';
 import SendEmailScreen from '../screens/SendEmailScreen';
 import NewPasswordScreen from '../screens/NewPasswordScreen';
+import FilterScreen from '../screens/FilterScreen';
+import HomeScreen from '../screens/HomeScreen';
+import SearchScreen from '../screens/SearchScreen';
+import SearchResultsScreen from '../screens/SearchResultsScreen';
+import CategoryScreen from '../screens/CategoryScreen';
+import NotificationScreen from '../screens/NotificationScreen';
 
 const Stack = createStackNavigator();
 
-const App = () => {
+const AppNavigator = () => {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  const handleLogin = () => {
+    setIsLoggedIn(true);
+  };
+
   return (
-    <NavigationContainer>
-       <Stack.Navigator initialRouteName="SignIn">
-       <Stack.Screen name="SignIn" component={SignInScreen} options={{ headerShown: false }} />
-       <Stack.Screen name="SignUp" component={SignUpScreen} options={{ headerShown: false }} />
-       <Stack.Screen name= "VerifyCode" component={VerifyCodeScreen}/>
-       <Stack.Screen name= "SendEmail" component={SendEmailScreen}/>
-       <Stack.Screen name="NewPassword" component={NewPasswordScreen}/>
-        <Stack.Screen name="ProductList" component={ProductList} />
-        <Stack.Screen name="AddProduct" component={AddProduct} />
-        <Stack.Screen name="EditProduct" component={EditProduct} />
-        <Stack.Screen name="DeleteProduct" component={DeleteProduct} />
-      </Stack.Navigator>
-    </NavigationContainer>
+    <Stack.Navigator screenOptions={{ headerShown: false }}>
+      {isLoggedIn ? (
+        <><Stack.Screen name="Tabs" component={Tabs} />
+        <Stack.Screen name="Home" component={HomeScreen} />
+        <Stack.Screen name="Filter" component={FilterScreen} />
+        <Stack.Screen name="Search" component={SearchScreen} />
+        <Stack.Screen name ="SearchResults" component={SearchResultsScreen}/>
+        <Stack.Screen name ="Category" component={CategoryScreen}/>
+        <Stack.Screen name ="Notification" component={NotificationScreen}/>
+        </>
+        
+      ) : (
+        <>
+          <Stack.Screen name="SignIn">
+            {props => <SignInScreen {...props} onLogin={handleLogin} />}
+          </Stack.Screen>
+          <Stack.Screen name="SignUp" component={SignUpScreen} />
+          <Stack.Screen name="VerifyCode" component={VerifyCodeScreen} />
+          <Stack.Screen name="SendEmail" component={SendEmailScreen} />
+          <Stack.Screen name="NewPassword" component={NewPasswordScreen} />
+        </>
+      )}
+    </Stack.Navigator>
   );
-}
+};
 
-export default App;
-
-const styles = StyleSheet.create({});
+export default AppNavigator;
