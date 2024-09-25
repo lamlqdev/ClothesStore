@@ -11,9 +11,8 @@ const menuItems = [
   { title: 'Payment Methods', icon: 'credit-card' },
   { title: 'My Orders', icon: 'shopping-bag' },
   { title: 'Settings', icon: 'settings' },
-  { title: 'Help Center', icon: 'help-circle' },
+  { title: 'Contact Us', icon: 'help-circle' },
   { title: 'Privacy Policy', icon: 'lock' },
-  { title: 'Invites Friends', icon: 'users' },
   { title: 'Log out', icon: 'log-out' },
 ];
 
