@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Icon2 from 'react-native-vector-icons/Ionicons';
 import Icon3 from 'react-native-vector-icons/FontAwesome6';
 import { useNavigation } from '@react-navigation/native';
 import Header from '../components/Header';
 
-const PaymentScreen = () => {
+const PaymentScreen = ({ route }) => {
     const navigation = useNavigation();
+    const { fromProfile } = route.params || {};
+
     const [selectedOption, setSelectedOption] = useState(null);
 
     const paymentOptions = [
@@ -23,8 +25,8 @@ const PaymentScreen = () => {
     return (
         <View style={styles.container}>
             <Header title="Payment Methods" onBackPress={() => navigation.goBack()} />
-            
-            <Text style={styles.paymentOptionsTitle}>Credit & Debit Cart</Text>
+
+            <Text style={styles.paymentOptionsTitle}>Credit & Debit Card</Text>
             <View style={styles.cardSection}>
                 <TouchableOpacity style={styles.cardButton} onPress={() => navigation.navigate('AddCard')}>
                     <Icon name="credit-card" size={24} color="#8B4513" />
@@ -46,18 +48,27 @@ const PaymentScreen = () => {
                             {item.icon}
                             <Text style={styles.paymentOptionText}>{item.name}</Text>
                         </View>
-                        <Icon2
-                            name={selectedOption === item.id ? 'radio-button-on' : 'radio-button-off'}
-                            size={24}
-                            color={selectedOption === item.id ? '#8B4513' : '#ccc'}
-                        />
+                        {fromProfile ? (
+                            <Text style={styles.linkText}>Link</Text>
+                        ) : (
+                            <Icon2
+                                name={selectedOption === item.id ? 'radio-button-on' : 'radio-button-off'}
+                                size={24}
+                                color={selectedOption === item.id ? '#8B4513' : '#ccc'}
+                            />
+                        )}
                     </TouchableOpacity>
                 )}
             />
 
-            <TouchableOpacity style={styles.confirmButton} onPress={() => navigation.navigate('PaymentSuccess')}>
-                <Text style={styles.confirmButtonText}>Confirm Payment</Text>
-            </TouchableOpacity>
+            {!fromProfile && (
+                <TouchableOpacity
+                    style={styles.confirmButton}
+                    onPress={() => navigation.navigate('PaymentSuccess')}
+                >
+                    <Text style={styles.confirmButtonText}>Confirm Payment</Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
 };
@@ -66,6 +77,13 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#fff',
+    },
+    paymentOptionsTitle: {
+        fontSize: 16,
+        color: "black",
+        fontWeight: 'bold',
+        marginHorizontal: 20,
+        marginTop: 30,
     },
     cardSection: {
         marginTop: 20,
@@ -85,13 +103,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
-    paymentOptionsTitle: {
-        fontSize: 16,
-        color: "black",
-        fontWeight: 'bold',
-        marginHorizontal: 20,
-        marginTop: 30,
-    },
     paymentOption: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -108,7 +119,11 @@ const styles = StyleSheet.create({
     paymentOptionText: {
         marginLeft: 10,
         fontSize: 16,
-        color: "black"
+        color: "black",
+    },
+    linkText: {
+        color: '#0070BA',
+        fontSize: 16,
     },
     confirmButton: {
         position: 'absolute',

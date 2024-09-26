@@ -1,4 +1,5 @@
-import { StyleSheet, Text, View, Image, TouchableOpacity } from 'react-native'
+import React from 'react';
+import { StyleSheet, View, Image, TouchableOpacity } from 'react-native'
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { Colors } from '../constants/colors';
 
@@ -52,7 +53,7 @@ const FloatingTabBarButton = ({children, onPress}) => (
     </TouchableOpacity>
 )
 
-const Tabs = () => {
+const Tabs = ({ onLogout }) => {
     return(
         <Tab.Navigator 
             screenOptions={{
@@ -105,7 +106,8 @@ const Tabs = () => {
                             icon={require('../../assets/icons/ic_favourite.png')}
                         />
                     ),
-                }}/>
+                }}
+            />
             <Tab.Screen
                 name="Message"
                 component={MessageScreen}
@@ -120,7 +122,6 @@ const Tabs = () => {
             />
             <Tab.Screen
                 name="Profile"
-                component={ProfileScreen}
                 options={{
                     tabBarIcon: ({ focused }) => (
                         <TabBarIcon
@@ -129,7 +130,9 @@ const Tabs = () => {
                         />
                     ),
                 }}
-            />
+            >
+                {(props) => <ProfileScreen {...props} onLogout={onLogout} />}
+            </Tab.Screen>
         </Tab.Navigator>
     );
 }
@@ -155,4 +158,4 @@ const styles = StyleSheet.create({
     }
 });
 
-export default Tabs
+export default Tabs;

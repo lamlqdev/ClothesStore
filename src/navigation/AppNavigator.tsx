@@ -16,6 +16,10 @@ import PaymentScreen from '../screens/PaymentScreen';
 import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
 import AddCardScreen from '../screens/AddCardScreen';
 import { ChooseShippingScreen, ShippingAddressScreen } from '../screens/Shipping';
+import SettingsScreen from '../screens/SettingScreen';
+import PasswordManagerScreen from '../screens/PasswordManagerScreen';
+import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
+import ContactUsScreen from '../screens/ContactUsScreen';
 
 const Stack = createStackNavigator();
 
@@ -30,7 +34,9 @@ const AppNavigator = () => {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       {isLoggedIn ? (
         <>
-          <Stack.Screen name="Tabs" component={Tabs} />
+          <Stack.Screen name="Tabs">
+            {props => <Tabs {...props} onLogout={() => setIsLoggedIn(false)} />}
+          </Stack.Screen>
           <Stack.Screen name="Filter" component={FilterScreen} />
           <Stack.Screen name="Search" component={SearchScreen} />
           <Stack.Screen name="SearchResults" component={SearchResultsScreen} />
@@ -42,6 +48,10 @@ const AppNavigator = () => {
           <Stack.Screen name="Payment" component={PaymentScreen} />
           <Stack.Screen name="AddCard" component={AddCardScreen} />
           <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
+          <Stack.Screen name="Setting" component={SettingsScreen} />
+          <Stack.Screen name="PasswordManager" component={PasswordManagerScreen} />
+          <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
+          <Stack.Screen name="ContactUs" component={ContactUsScreen} />
         </>
       ) : (
         <>

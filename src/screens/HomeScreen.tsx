@@ -3,6 +3,7 @@ import { useNavigation } from '@react-navigation/native';
 import { View, Text, TextInput, Image, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import { Colors } from 'react-native/Libraries/NewAppScreen';
 
 const categories = [
   { id: 1, name: 'T-Shirt', icon: 'tshirt' },
@@ -105,7 +106,7 @@ function HomeScreen() {
       renderItem={renderItem}
       keyExtractor={item => item.id.toString()}
       ListHeaderComponent={renderHeader}
-      contentContainerStyle={{ paddingBottom: 80 }} // Để tạo khoảng cách cho phần dưới
+      contentContainerStyle={{ paddingBottom: 80 }}
       numColumns={2}
     />
   );
@@ -203,7 +204,8 @@ const styles = StyleSheet.create({
   categoryText: {
     marginTop: 8,
     fontSize: 14,
-    color: '#555'
+    color: 'black',
+    fontWeight: 'bold'
   },
   flashSaleContainer: {
     margin: 16
@@ -248,7 +250,9 @@ const styles = StyleSheet.create({
   },
   productName: {
     fontSize: 16,
-    marginVertical: 8
+    marginVertical: 8,
+    color: "black",
+    fontWeight: "bold"
   },
   productInfo: {
     flexDirection: 'row',
@@ -258,7 +262,7 @@ const styles = StyleSheet.create({
   },
   productPrice: {
     fontSize: 14,
-    color: '#555'
+    color: 'black'
   },
   productRating: {
     flexDirection: 'row',
