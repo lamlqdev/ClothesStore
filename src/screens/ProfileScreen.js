@@ -3,7 +3,7 @@ import { View, Text, Image, StatusBar, StyleSheet, TouchableOpacity, FlatList } 
 import { Colors } from '../constants/colors';
 import Header from '../components/Header';
 import { fontSize, iconSize, spacing } from '../constants/dimensions';
-import Feather from 'react-native-vector-icons/Feather'
+import Feather from 'react-native-vector-icons/Feather';
 import { Fonts } from '../constants/fonts';
 
 const menuItems = [
@@ -17,8 +17,16 @@ const menuItems = [
   { title: 'Log out', icon: 'log-out' },
 ];
 
-const renderItem = ({ item }) => (
-  <TouchableOpacity style={styles.menuItem}>
+// Cập nhật renderItem để nhận navigation đúng cách
+const renderItem = ({ item, navigation }) => (
+  <TouchableOpacity
+    style={styles.menuItem}
+    onPress={() => {
+      if (item.title === 'Settings') {
+        navigation.navigate('Setting'); // Điều hướng sang màn hình Settings
+      }
+    }}
+  >
     <View style={styles.menuIconContainer}>
       <Feather name={item.icon} size={28} color={Colors.Brown} />
     </View>
@@ -27,23 +35,20 @@ const renderItem = ({ item }) => (
   </TouchableOpacity>
 );
 
-const ProfileScreen = () => {
+const ProfileScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
-      <StatusBar 
-        barStyle="dark-content" 
-        backgroundColor={Colors.White}
-      />
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.White} />
 
       <Header title="Profile" />
 
       <View style={styles.profileImageContainer}>
-        <Image 
-          source={require("../../assets/images/profile_picture.png")} 
+        <Image
+          source={require('../../assets/images/profile_picture.png')}
           style={styles.profileImage}
         />
         <TouchableOpacity style={styles.editIconContainer}>
-          <Feather name={"edit-3"} size= {iconSize.sm} color={Colors.White}/>
+          <Feather name={"edit-3"} size={iconSize.sm} color={Colors.White} />
         </TouchableOpacity>
       </View>
 
@@ -53,11 +58,11 @@ const ProfileScreen = () => {
 
       <FlatList
         data={menuItems}
-        renderItem={renderItem}
-        keyExtractor={(item) => item.title} 
+        renderItem={({ item }) => renderItem({ item, navigation })} // Truyền navigation vào renderItem
+        keyExtractor={(item) => item.title}
         ItemSeparatorComponent={() => <View style={styles.separator} />}
       />
-    </View>  
+    </View>
   );
 };
 
@@ -65,7 +70,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     padding: spacing.sm,
-    backgroundColor: Colors.White
+    backgroundColor: Colors.White,
   },
   profileImageContainer: {
     justifyContent: 'center',
@@ -75,7 +80,7 @@ const styles = StyleSheet.create({
   profileImage: {
     height: 90,
     width: 90,
-    borderRadius: 15
+    borderRadius: 15,
   },
   editIconContainer: {
     height: 30,
@@ -87,7 +92,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: -20,
-    marginLeft: 60
+    marginLeft: 60,
   },
   nameContainer: {
     justifyContent: 'center',
@@ -97,7 +102,7 @@ const styles = StyleSheet.create({
   name: {
     fontFamily: Fonts.interBold,
     fontSize: fontSize.lg,
-    color: Colors.Black
+    color: Colors.Black,
   },
   menuItem: {
     flexDirection: 'row',
@@ -119,13 +124,13 @@ const styles = StyleSheet.create({
     fontSize: fontSize.md,
     color: Colors.Black,
     marginLeft: spacing.sm,
-    fontFamily: Fonts.interMedium
+    fontFamily: Fonts.interMedium,
   },
   separator: {
     height: 0.7,
-    backgroundColor: Colors.LightGray, 
-    marginHorizontal: spacing.sm, 
+    backgroundColor: Colors.LightGray,
+    marginHorizontal: spacing.sm,
   },
-})
+});
 
 export default ProfileScreen;

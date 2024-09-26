@@ -12,6 +12,9 @@ import SearchScreen from '../screens/SearchScreen';
 import SearchResultsScreen from '../screens/SearchResultsScreen';
 import CategoryScreen from '../screens/CategoryScreen';
 import NotificationScreen from '../screens/NotificationScreen';
+import ProfileScreen from '../screens/ProfileScreen';
+import SettingsScreen from '../screens/SettingScreen';
+import PasswordManagerScreen from '../screens/PasswordManagerScreen';
 
 const Stack = createStackNavigator();
 
@@ -32,6 +35,9 @@ const AppNavigator = () => {
         <Stack.Screen name ="SearchResults" component={SearchResultsScreen}/>
         <Stack.Screen name ="Category" component={CategoryScreen}/>
         <Stack.Screen name ="Notification" component={NotificationScreen}/>
+        <Stack.Screen name ="Profile" component={ProfileScreen}/>
+        <Stack.Screen name ="Setting" component={SettingsScreen}/>
+        <Stack.Screen name ="PasswordManager" component={PasswordManagerScreen}/>
         </>
         
       ) : (
