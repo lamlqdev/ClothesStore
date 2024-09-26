@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { View, StatusBar, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import Header from '../components/Header';
 import OrderList from '../components/OrderList';
 import { Colors } from '../constants/colors';
@@ -8,6 +9,7 @@ import { Fonts } from '../constants/fonts';
 
 const MyOrderScreen = () => {
     const [activeTab, setActiveTab] = useState('active'); 
+    const navigation = useNavigation();
 
     const activeOrders = [
         {
@@ -65,7 +67,7 @@ const MyOrderScreen = () => {
     return (
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.White} />
-            <Header title="My Orders" />
+            <Header title="My Orders" onBackPress={() => navigation.goBack()} />
             <View style={styles.buttonContainer}>
                 <TabText title="Active" isActive={activeTab === 'active'} />
                 <TabText title="Completed" isActive={activeTab === 'completed'} />

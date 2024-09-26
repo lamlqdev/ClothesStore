@@ -20,6 +20,7 @@ import SettingsScreen from '../screens/SettingScreen';
 import PasswordManagerScreen from '../screens/PasswordManagerScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import ContactUsScreen from '../screens/ContactUsScreen';
+import MyOderScreen from '../screens/MyOderScreen';
 
 const Stack = createStackNavigator();
 
@@ -52,6 +53,7 @@ const AppNavigator = () => {
           <Stack.Screen name="PasswordManager" component={PasswordManagerScreen} />
           <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
           <Stack.Screen name="ContactUs" component={ContactUsScreen} />
+          <Stack.Screen name="MyOrders" component={MyOderScreen} />
         </>
       ) : (
         <>

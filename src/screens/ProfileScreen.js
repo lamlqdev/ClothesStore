@@ -33,6 +33,8 @@ const ProfileScreen = ({ navigation, onLogout }) => {
                     navigation.navigate('ContactUs', { fromProfile: true });
                 } else if (item.title === 'Log out') {
                     setLogoutModalVisible(true);
+                } else if (item.title === 'My Orders') {
+                    navigation.navigate('MyOrders', { fromProfile: true });
                 }
             }}
         >
