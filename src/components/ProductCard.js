@@ -2,31 +2,29 @@ import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
-const ProductCard = ({ item }) => {
-  const [isWished, setIsWished] = useState(false); // State để theo dõi trạng thái wishlist
+const ProductCard = ({ item, onPress }) => {
+  const [isWished, setIsWished] = useState(false);
 
   const handleWishlistToggle = () => {
-    setIsWished(!isWished); // Đảo ngược trạng thái khi nhấn
+    setIsWished(!isWished);
   };
 
   return (
     <View style={styles.productCard}>
-      <Image source={{ uri: item.image }} style={styles.productImage} />
-      <View style={styles.productInfo}>
-        <Text style={styles.productName}>{item.name}</Text>
-        <View style={styles.productRating}>
-          <Icon name="star" size={16} color="orange" />
-          <Text style={styles.productRatingText}>{item.rating}</Text>
+      <TouchableOpacity onPress={onPress}>
+        <Image source={{ uri: item.image }} style={styles.productImage} />
+        <View style={styles.productInfo}>
+          <Text style={styles.productName}>{item.name}</Text>
+          <View style={styles.productRating}>
+            <Icon name="star" size={16} color="orange" />
+            <Text style={styles.productRatingText}>{item.rating}</Text>
+          </View>
         </View>
-      </View>
-      <Text style={styles.productPrice}>{item.price}</Text>
+        <Text style={styles.productPrice}>{item.price}</Text>
+      </TouchableOpacity>
       <TouchableOpacity style={styles.wishlistIcon} onPress={handleWishlistToggle}>
         <View style={[styles.wishlistCircle, isWished && styles.wishedCircle]}>
-          <Icon
-            name="heart"
-            size={18}
-            color={isWished ? '#fff' : 'gray'}
-          />
+          <Icon name="heart" size={18} color={isWished ? '#fff' : 'gray'} />
         </View>
       </TouchableOpacity>
     </View>
@@ -87,6 +85,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   wishedCircle: {
-    backgroundColor: '#8B4513', 
+    backgroundColor: '#8B4513',
   },
 });

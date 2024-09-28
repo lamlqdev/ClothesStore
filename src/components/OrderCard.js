@@ -3,7 +3,7 @@ import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
 import { Colors } from '../constants/colors';
 import { Fonts } from '../constants/fonts';
 
-const OrderCard = ({ productImage, productName, size, quantity, price, onTrackOrder, buttonText }) => {
+const OrderCard = ({ productImage, productName, size, quantity, price, onClickButton, buttonText }) => {
   return (
     <View style={styles.container}>
       <Image
@@ -17,7 +17,7 @@ const OrderCard = ({ productImage, productName, size, quantity, price, onTrackOr
         <Text style={styles.price}>${price}</Text>
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={onTrackOrder}>
+      <TouchableOpacity style={styles.button} onPress={onClickButton}>
         <Text style={styles.buttonText}>{buttonText}</Text>
       </TouchableOpacity>
 

@@ -56,6 +56,10 @@ const MyOrderScreen = () => {
         console.log('Tracking order for:', item.productName);
     };
 
+    const handleLeaveReview = (item) => {
+        navigation.navigate('LeaveReview', { orderId: item.id });
+    };
+
     const TabText = ({ title, isActive }) => (
         <TouchableOpacity onPress={() => setActiveTab(title.toLowerCase())}>
             <Text style={[styles.tabText, isActive && styles.activeTab]}>
@@ -89,7 +93,7 @@ const MyOrderScreen = () => {
                             ...order,
                             buttonText: 'Leave Review',
                         }))}
-                        onClickButton={handleTrackOrder}
+                        onClickButton={handleLeaveReview}
                     />
                 )}
                 {activeTab === 'cancelled' && (

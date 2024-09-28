@@ -4,11 +4,14 @@ import Ionicons from "react-native-vector-icons/Ionicons"
 import { Colors } from '../constants/colors'
 import { Fonts } from '../constants/fonts'
 import { iconSize } from '../constants/dimensions'
+import { useNavigation } from '@react-navigation/native';
 
 const Header = ({ title, onBackPress, showFavoriteIcon, onFavoritePress }) => {
+  const navigation = useNavigation();
+
   return (
     <View style={styles.header}>
-      <TouchableOpacity style={styles.iconContainer} onPress={onBackPress}>
+      <TouchableOpacity style={styles.iconContainer} onPress={() => navigation.navigate('Wish')}>
         <Ionicons name={'arrow-back'} color={Colors.Black} size={iconSize.sm} />
       </TouchableOpacity>
       

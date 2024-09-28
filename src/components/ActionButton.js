@@ -2,14 +2,17 @@ import React from 'react';
 import { View, TouchableOpacity, Text, StyleSheet } from 'react-native';
 import { Colors } from '../constants/colors';
 import { Fonts } from '../constants/fonts';
+import { useNavigation } from '@react-navigation/native';
 
 const ActionButtons = () => {
+  const navigation = useNavigation();
+
   return (
     <View style={styles.buttonContainer}>
       <TouchableOpacity style={styles.cancelButton}>
         <Text style={styles.cancelText}>Cancel</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.submitButton}>
+      <TouchableOpacity style={styles.submitButton} onPress={() => navigation.navigate('MyOrders')}>
         <Text style={styles.submitText}>Submit</Text>
       </TouchableOpacity>
     </View>

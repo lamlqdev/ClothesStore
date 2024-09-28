@@ -5,6 +5,7 @@ import Header from '../components/Header';
 import { fontSize, iconSize, spacing } from '../constants/dimensions';
 import Category from '../components/Category';
 import ProductCard from '../components/ProductCard';
+import { useNavigation } from '@react-navigation/native';
 
 const categories = ['All', 'Jacket', 'Shirt', 'Pant', 'T-Shirt', 'Dress']
 
@@ -18,7 +19,8 @@ const products = [
 ];
 
 const WishScreen = () => {
-  const [selectedCategory, setSelectedCategory] = useState(null)
+  const [selectedCategory, setSelectedCategory] = useState(null);
+  const navigation = useNavigation();
 
   return (
     <View style={styles.container}>
@@ -47,6 +49,7 @@ const WishScreen = () => {
         renderItem={({item}) => (
           <ProductCard 
             item={item}
+            onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
           />
         )}
         keyExtractor={item => item.id.toString()}

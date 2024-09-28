@@ -9,6 +9,7 @@ import { Fonts } from '../constants/fonts';
 import RatingStars from '../components/RatingStar';
 import ReviewInput from '../components/ReviewInput';
 import ActionButtons from '../components/ActionButton';
+import { useNavigation } from '@react-navigation/native';
 
 const completedOrders = [
     {
@@ -22,7 +23,7 @@ const completedOrders = [
 ];
 
 const LeaveReviewScreen = () => {
-
+    const navigation = useNavigation();
     const handleLeaveReview = (item) => {
         console.log('Tracking order for:', item.productName);
     };
@@ -30,7 +31,7 @@ const LeaveReviewScreen = () => {
     return (
         <View style={styles.container}>
             <View>
-                <Header title={"Leave Review"} style={styles.header} />
+                <Header title={"Leave Review"} style={styles.header} onBackPress={() => navigation.goBack()} />
                 <OrderList
                     orderList={completedOrders.map(order => ({
                         ...order,

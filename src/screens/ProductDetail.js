@@ -1,7 +1,6 @@
 import { StyleSheet, Text, View, StatusBar, ScrollView } from 'react-native'
 import React from 'react';
 import { Colors } from '../constants/colors';
-import Header from '../components/Header';
 import Slider from '../components/Slider';
 import ProductInfor from '../components/ProductInfor';
 import SelectSize from '../components/SizeSelector';

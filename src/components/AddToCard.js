@@ -3,10 +3,13 @@ import { TouchableOpacity, Text, StyleSheet, View } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome'; // Import FontAwesome icon
 import { Colors } from '../constants/colors';
 import { Fonts } from '../constants/fonts';
+import { useNavigation } from '@react-navigation/native';
 
 const AddToCartButton = ({ onPress }) => {
+    const navigation = useNavigation();
+
     return (
-        <TouchableOpacity style={styles.button} onPress={onPress}>
+        <TouchableOpacity style={styles.button} onPress={() => navigation.navigate('MyOrders')}>
             <View style={styles.content}>
                 <Icon name="shopping-cart" size={20} color="#fff" style={styles.icon} /> 
                 <Text style={styles.buttonText}>Add to Cart</Text>

@@ -21,6 +21,8 @@ import PasswordManagerScreen from '../screens/PasswordManagerScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import ContactUsScreen from '../screens/ContactUsScreen';
 import MyOderScreen from '../screens/MyOderScreen';
+import LeaveReviewScreen from '../screens/LeaveReviewScreen';
+import ProductDetail from '../screens/ProductDetail';
 
 const Stack = createStackNavigator();
 
@@ -54,6 +56,8 @@ const AppNavigator = () => {
           <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
           <Stack.Screen name="ContactUs" component={ContactUsScreen} />
           <Stack.Screen name="MyOrders" component={MyOderScreen} />
+          <Stack.Screen name="LeaveReview" component={LeaveReviewScreen} />
+          <Stack.Screen name="ProductDetail" component={ProductDetail} />
         </>
       ) : (
         <>
