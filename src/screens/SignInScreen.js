@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import auth from '@react-native-firebase/auth';
+import { GoogleSignin } from '@react-native-google-signin/google-signin';
 
 const SignInScreen = ({ navigation, onLogin }) => {
   const [email, setEmail] = useState('');
@@ -14,11 +16,31 @@ const SignInScreen = ({ navigation, onLogin }) => {
     onLogin();
   };
 
+  GoogleSignin.configure({
+    webClientId: '799913536954-4p5dfasc62kps9qtuqhe3bjaaiehasbb.apps.googleusercontent.com',
+  });
+
+  const handleGoogleSignIn = async () => {
+    try {
+      await GoogleSignin.hasPlayServices();
+      const { idToken } = await GoogleSignin.signIn();
+
+      // Tạo một đối tượng credential từ idToken
+      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
+
+      // Đăng nhập vào Firebase
+      await auth().signInWithCredential(googleCredential);
+      onLogin();
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Sign In</Text>
       <Text style={styles.subtitle}>Hi! Welcome back, you've been missed</Text>
-      
+
       <View style={styles.inputContainer}>
         <Image source={require('../../assets/icons/ic_profile.png')} style={styles.iconStyle} />
         <TextInput
@@ -64,8 +86,11 @@ const SignInScreen = ({ navigation, onLogin }) => {
 
       <View style={styles.socialMediaContainer}>
         <Image source={require('../../assets/icons/facebook.png')} style={styles.socialIcon} />
-        <Image source={require('../../assets/icons/google.png')} style={styles.socialIcon} />
+        <TouchableOpacity onPress={handleGoogleSignIn}>
+          <Image source={require('../../assets/icons/google.png')} style={styles.socialIcon} />
+        </TouchableOpacity>
       </View>
+
 
       <View style={styles.signUpContainer}>
         <Text style={styles.signUpText}>Don’t have an account? </Text>
@@ -102,7 +127,7 @@ const styles = StyleSheet.create({
     padding: 10,
     marginBottom: 10,
     alignItems: 'center',
-    borderRadius: 30,  
+    borderRadius: 30,
   },
   iconStyle: {
     width: 20,
@@ -123,7 +148,7 @@ const styles = StyleSheet.create({
     width: '100%',
     alignItems: 'center',
     marginBottom: 30,
-    borderRadius: 30,  
+    borderRadius: 30,
   },
   buttonText: {
     color: '#fff',
@@ -164,7 +189,7 @@ const styles = StyleSheet.create({
   },
   signUpLink: {
     fontSize: 16,
-    color: '#6A432D', 
+    color: '#6A432D',
     textDecorationLine: 'underline',
   },
 });

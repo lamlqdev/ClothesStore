@@ -1,0 +1,26 @@
+[33m0432113[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mtanluong[m[33m)[m Chỉnh sửa một vài bug, thêm điều hướng trang
+[33mc006e92[m[33m ([m[1;31morigin/main[m[33m)[m leave review screen
+[33ma581087[m product detail screen (thieu review)
+[33m7a4ab6b[m[33m ([m[1;32mmain[m[33m)[m Chỉnh sửa một vài bug, thêm điều hướng trang và gộp code mới nhất 27/09/2024
+[33mf4947d3[m Merge nhánh tanluong vào nhánh main
+[33m41a7628[m[33m ([m[1;31morigin/tanluong[m[33m)[m Thêm giao diện và chỉnh sửa trang Profile
+[33m2b25e13[m impl myorderscreen
+[33me91648e[m wishscreen
+[33m45ff41f[m Merge branch 'tanluong'
+[33md4ec952[m Sửa bug trang Home, gộp code giao diện tìm kiếm, thông báo, bộ lọc, danh mục
+[33mcc4da6e[m Thêm các giao diện liên quan đến checkout
+[33me5a3328[m Gộp code mới nhất
+[33m244240d[m Gộp code mới nhất
+[33me7900e7[m Gộp code mới nhất
+[33m34e710f[m Gộp code mới nhất
+[33m018fd37[m Gộp tất cả code mới nhất
+[33m7e9dd3f[m Tạo thêm file AppNavigator để chuyển trang
+[33m8cad2e3[m Hoàn thành lần 1 giao diện của My Cart và Home
+[33m0c0e8b8[m Chỉnh lại giao diện trang Home, gộp code trang Profile
+[33m1c4c35c[m profile screen interface
+[33m8fe9cf7[m apply gradle
+[33m9198dd2[m add header component
+[33m37957a4[m Thêm xóa sửa sản phẩm với firebase, UI nút Home
+[33m10c4bb8[m sync statusbar and screen color
+[33m80827fb[m init with bottom tab
+[33m043cc0d[m Initial commit
