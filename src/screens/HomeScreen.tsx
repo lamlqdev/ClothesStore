@@ -1,8 +1,10 @@
 import { title } from 'process';
 import React from 'react';
-import { View, Text, TextInput, Image, StyleSheet, ScrollView, TouchableOpacity, FlatList } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { View, Text, TextInput, Image, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
+import { Colors } from 'react-native/Libraries/NewAppScreen';
 
 const categories = [
   { id: 1, name: 'T-Shirt', icon: 'tshirt' },
@@ -18,137 +20,101 @@ const products = [
   { id: 4, name: 'Red Dress', price: '$500.00', rating: 4.9, image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSf05jWbUmZSFcnHa2oJVV39tUvN-iJMpfyZw&s' }
 ];
 
-function HomeScreen({ navigation }) {
-  return (
-    <View style={{ flex: 1, paddingBottom: 80 }}>
-      <ScrollView style={styles.container}>
-        <View style={styles.header}>
-          <View style={styles.locationContainer}>
-            <Icon name="map-marker" size={20} color="red" />
-            <Text style={styles.locationText}>New York, USA</Text>
-          </View>
-          <View style={styles.headerIcons}>
-            <Icon name="bell" size={24} color="black" style={styles.icon}
-            onPress={() => navigation.navigate('Notification')}
-             />
-          </View>
-        </View>
+function HomeScreen({navigation}) {
 
-        <View style={styles.searchAndFilterContainer}>
-          <View style={styles.searchContainer}>
-            <Icon name="search" size={18} color="#888" style={styles.searchIcon} />
-            <TextInput style={styles.searchInput} placeholder="Search"
-            onPress={() => navigation.navigate('Search')}  />
-          </View>
-          <Icon 
-            name="sliders" 
-            size={24} 
-            color="brown" 
-            style={styles.filterIconOutside} 
-            onPress={() => navigation.navigate('Filter')}  // Sửa tên route của màn hình Filter
-          />
+  const renderHeader = () => (
+    <View style={styles.headerContainer}>
+      <View style={styles.searchAndFilterContainer}>
+        <View style={styles.searchContainer}>
+          <Icon name="search" size={18} color="#888" style={styles.searchIcon} />
+          <TextInput style={styles.searchInput} placeholder="Search" onPress={() => navigation.navigate('Search')} />
         </View>
+        <Icon name="bell" size={24} color="brown" style={styles.icon} onPress={() => navigation.navigate('Notification')} />
+      </View>
 
-        <View style={styles.bannerContainer}>
-          <Image source={{ uri: 'https://file.hstatic.net/200000503583/article/high-fashion-la-gi-21_15eb1f9733ae4344977098b5bdcaf03f_2048x2048.jpg' }} style={styles.bannerImage} />
-          <View style={styles.bannerTextContainer}>
-            <Text style={styles.bannerTitle}>New Collection</Text>
-            <Text style={styles.bannerSubtitle}>Discount 50% for the first transaction</Text>
-            <TouchableOpacity style={styles.shopNowButton}>
-              <Text style={styles.shopNowText}>Shop Now</Text>
+      <View style={styles.bannerContainer}>
+        <Image source={{ uri: 'https://file.hstatic.net/200000503583/article/high-fashion-la-gi-21_15eb1f9733ae4344977098b5bdcaf03f_2048x2048.jpg' }} style={styles.bannerImage} />
+        <View style={styles.bannerTextContainer}>
+          <Text style={styles.bannerTitle}>New Collection</Text>
+          <Text style={styles.bannerSubtitle}>Discount 50% for the first transaction</Text>
+          <TouchableOpacity style={styles.shopNowButton}>
+            <Text style={styles.shopNowText}>Shop Now</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+
+      <View style={styles.categoryContainer}>
+        <View style={styles.categoryHeader}>
+          <Text style={styles.sectionTitle}>Category</Text>
+          <TouchableOpacity>
+            <Text style={styles.seeAll}>See all</Text>
+          </TouchableOpacity>
+        </View>
+        <View style={styles.categories}>
+          {categories.map(category => (
+            <TouchableOpacity
+              key={category.id}
+              style={styles.category}
+              onPress={() => {
+                navigation.navigate('Category', { title: category.name });
+              }}>
+              <FontAwesome5 name={category.icon} size={24} color="brown" />
+              <Text style={styles.categoryText}>{category.name}</Text>
             </TouchableOpacity>
-          </View>
+          ))}
         </View>
+      </View>
 
-        <View style={styles.categoryContainer}>
-          <View style={styles.categoryHeader}>
-            <Text style={styles.sectionTitle}>Category</Text>
-            <TouchableOpacity>
-              <Text style={styles.seeAll}>See all</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.categories}>
-            {categories.map(category => (
-              <TouchableOpacity 
-                key={category.id} 
-                style={styles.category} 
-                onPress={() => {
-                    navigation.navigate('Category',{ title: category.name }); // Điều hướng đến màn hình "Jacket"
-                }}>
-                <FontAwesome5 name={category.icon} size={24} color="brown" />
-                <Text style={styles.categoryText}>{category.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+      <View style={styles.flashSaleContainer}>
+        <View style={styles.flashSaleHeader}>
+          <Text style={styles.sectionTitle}>Flash Sale</Text>
+          <Text style={styles.closingInText}>
+            Closing in: <Text style={styles.closingInTime}>02:12:56</Text>
+          </Text>
         </View>
-
-        <View style={styles.flashSaleContainer}>
-          <View style={styles.flashSaleHeader}>
-            <Text style={styles.sectionTitle}>Flash Sale</Text>
-            <Text style={styles.closingInText}>
-              Closing in: <Text style={styles.closingInTime}>02:12:56</Text>
-            </Text>
-          </View>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
-            <Text style={styles.filterText}>All</Text>
-            <Text style={styles.filterText}>Woman</Text>
-            <Text style={styles.filterText}>Man</Text>
-            <Text style={styles.filterText}>Newest</Text>
-            <Text style={styles.filterText}>Popular</Text>
-          </ScrollView>
-          <FlatList
-            data={products}
-            renderItem={({ item }) => (
-              <View style={styles.productCard}>
-                <Image source={{ uri: item.image }} style={styles.productImage} />
-                <View style={styles.productInfo}>
-                  <Text style={styles.productName}>{item.name}</Text>
-                  <View style={styles.productRating}>
-                    <Icon name="star" size={16} color="orange" />
-                    <Text style={styles.productRatingText}>{item.rating}</Text>
-                  </View>
-                </View>
-                <Text style={styles.productPrice}>{item.price}</Text>
-                <TouchableOpacity style={styles.wishlistIcon}>
-                  <Icon name="heart" size={20} color="gray" />
-                </TouchableOpacity>
-              </View>
-            )}
-            keyExtractor={item => item.id.toString()}
-            showsVerticalScrollIndicator={false}
-            numColumns={2}
-          />
-
-        </View>
-      </ScrollView>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
+          <Text style={styles.filterText}>All</Text>
+          <Text style={styles.filterText}>Woman</Text>
+          <Text style={styles.filterText}>Man</Text>
+          <Text style={styles.filterText}>Newest</Text>
+          <Text style={styles.filterText}>Popular</Text>
+        </ScrollView>
+      </View>
     </View>
+  );
+
+  const renderItem = ({ item }) => (
+    <View style={styles.productCard}>
+      <Image source={{ uri: item.image }} style={styles.productImage} />
+      <View style={styles.productInfo}>
+        <Text style={styles.productName}>{item.name}</Text>
+        <View style={styles.productRating}>
+          <Icon name="star" size={16} color="orange" />
+          <Text style={styles.productRatingText}>{item.rating}</Text>
+        </View>
+      </View>
+      <Text style={styles.productPrice}>{item.price}</Text>
+      <TouchableOpacity style={styles.wishlistIcon}>
+        <Icon name="heart" size={20} color="gray" />
+      </TouchableOpacity>
+    </View>
+  );
+
+  return (
+    <FlatList
+      data={products}
+      renderItem={renderItem}
+      keyExtractor={item => item.id.toString()}
+      ListHeaderComponent={renderHeader}
+      contentContainerStyle={{ paddingBottom: 80 }}
+      numColumns={2}
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flexGrow: 1,
-    backgroundColor: '#f5f5f5',
-    paddingBottom: 80
-  },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 16
-  },
-  locationContainer: {
-    flexDirection: 'row',
-    alignItems: 'center'
-  },
-  locationText: {
-    marginLeft: 8,
-    fontSize: 16,
-    color: '#555'
-  },
-  headerIcons: {
-    flexDirection: 'row',
-    alignItems: 'center'
+  headerContainer: {
+    paddingBottom: 16,
   },
   icon: {
     marginLeft: 15
@@ -174,9 +140,6 @@ const styles = StyleSheet.create({
   },
   searchInput: {
     flex: 1,
-  },
-  filterIconOutside: {
-    marginLeft: 10
   },
   bannerContainer: {
     margin: 16,
@@ -241,7 +204,8 @@ const styles = StyleSheet.create({
   categoryText: {
     marginTop: 8,
     fontSize: 14,
-    color: '#555'
+    color: 'black',
+    fontWeight: 'bold'
   },
   flashSaleContainer: {
     margin: 16
@@ -286,7 +250,9 @@ const styles = StyleSheet.create({
   },
   productName: {
     fontSize: 16,
-    marginVertical: 8
+    marginVertical: 8,
+    color: "black",
+    fontWeight: "bold"
   },
   productInfo: {
     flexDirection: 'row',
@@ -296,7 +262,7 @@ const styles = StyleSheet.create({
   },
   productPrice: {
     fontSize: 14,
-    color: '#555'
+    color: 'black'
   },
   productRating: {
     flexDirection: 'row',

@@ -8,20 +8,21 @@ import Feather from 'react-native-vector-icons/Feather';
 import { Fonts } from '../constants/fonts';
 
 const settingsItems = [
-  { title: 'Notification Settings', icon: 'bell', screen: 'NotificationSettings' },  // Giả định có màn hình NotificationSettings
+  { title: 'Notification Settings', icon: 'bell', screen: 'NotificationSettings' },
   { title: 'Password Manager', icon: 'key', screen: 'PasswordManager' },
-  { title: 'Delete Account', icon: 'trash-2', screen: 'DeleteAccount' },  // Giả định có màn hình DeleteAccount
+  { title: 'Delete Account', icon: 'trash-2', screen: 'DeleteAccount' },
 ];
 
 const SettingsScreen = ({navigation}) => {
-  //const navigation = useNavigation();  // Sử dụng useNavigation để điều hướng
 
   const renderItem = ({ item }) => (
     <TouchableOpacity
       style={styles.menuItem}
       onPress={() => {
         if (item.screen === 'PasswordManager') {
-          navigation.navigate('PasswordManager'); // Điều hướng sang màn hình Settings
+          navigation.navigate('PasswordManager');
+        }else if(item.screen === 'NotificationSettings') {
+          navigation.navigate('Notification');
         }
       }}
     >

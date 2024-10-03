@@ -1,41 +1,55 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import auth from '@react-native-firebase/auth'; // Firebase Auth
+import Header from '../components/Header'; // Import Header
 
 const SendEmailScreen = ({ navigation }) => {
   const [email, setEmail] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  // Ẩn tiêu đề của thanh điều hướng khi màn hình được mở
-  useEffect(() => {
-    navigation.setOptions({
-      headerTitle: '',  // Xóa tiêu đề
-    });
-  }, [navigation]);
-
-  const handleNext = () => {
+  const handleNext = async () => {
     if (email) {
-      // Điều hướng sang màn hình Verify Code và truyền email
-      navigation.navigate('VerifyCode', { email });
+      setLoading(true);
+      try {
+        // Gửi email reset password qua Firebase Auth
+        await auth().sendPasswordResetEmail(email);
+        setLoading(false);
+        Alert.alert('Email Sent', 'Please check your email to reset your password.');
+        // Sau khi gửi email thành công, điều hướng đến màn hình nhập mã xác nhận
+        navigation.navigate('SignIn', { email });
+      } catch (error) {
+        setLoading(false);
+        Alert.alert('Error', error.message);
+      }
     } else {
-      console.log('Vui lòng nhập email');
+      Alert.alert('Validation', 'Please enter your email.');
     }
   };
 
   return (
     <View style={styles.container}>
-      <Text style={styles.headerText}>Find your account</Text>
-      <Text style={styles.subtitle}>Fill in your email to restore your account</Text>
-      <View style={styles.inputContainer}>
-        <TextInput
+      {/* Sử dụng Header với title và onBackPress */}
+      <Header title="Send Email" onBackPress={() => navigation.goBack()} />
+
+      <View style={styles.content}>
+        <Text style={styles.headerText}>Find your account</Text>
+        <Text style={styles.subtitle}>Fill in your email to restore your account</Text>
+
+        <View style={styles.inputContainer}>
+          <TextInput
             style={styles.input}
             placeholder="Email"
             value={email}
             onChangeText={setEmail}
-        />
-      </View>
+            keyboardType="email-address"
+            autoCapitalize="none"
+          />
+        </View>
 
-      <TouchableOpacity style={styles.button} onPress={handleNext}>
-        <Text style={styles.buttonText}>Send Email</Text>
-      </TouchableOpacity>
+        <TouchableOpacity style={styles.button} onPress={handleNext} disabled={loading}>
+          <Text style={styles.buttonText}>{loading ? 'Sending...' : 'Send Email'}</Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 };
@@ -43,10 +57,14 @@ const SendEmailScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
+    backgroundColor: '#fff',
+  },
+  content: {
+    flex: 1,
+    justifyContent: 'flex-start',  // Điều chỉnh để phần nội dung nằm gần phía trên
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#fff',
+    marginTop: 30,  // Đẩy phần nội dung xuống gần dưới Header hơn
   },
   headerText: {
     fontSize: 24,
@@ -57,6 +75,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#666',
     marginBottom: 20,
+    textAlign: 'center',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -66,6 +85,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     alignItems: 'center',
     borderRadius: 30,  
+    width: '100%',  // Đảm bảo input đầy đủ chiều ngang
   },
   input: {
     flex: 1,
@@ -76,7 +96,7 @@ const styles = StyleSheet.create({
     padding: 15,
     width: '100%',
     alignItems: 'center',
-    marginBottom: 30,
+    marginTop: 20,
     borderRadius: 30,  
   },
   buttonText: {
@@ -87,4 +107,5 @@ const styles = StyleSheet.create({
 });
 
 export default SendEmailScreen;
+
 

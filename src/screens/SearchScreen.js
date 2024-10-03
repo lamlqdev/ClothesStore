@@ -24,7 +24,6 @@ const SearchScreen = ({ navigation }) => {
     setRecentSearches([]);
   };
 
-  // Điều hướng đến màn hình kết quả tìm kiếm và truyền searchText
   const handleSearch = () => {
     navigation.navigate('SearchResults', { query: searchText });
   };
@@ -33,18 +32,26 @@ const SearchScreen = ({ navigation }) => {
     <View style={styles.container}>
       <Header title="Search" onBackPress={() => navigation.goBack()} />
       
-      {/* Search Bar */}
-      <View style={styles.searchContainer}>
-        <Icon name="search" size={20} color="#A9A9A9" />
-        <TextInput
-          placeholder="Search"
-          style={styles.searchInput}
-          placeholderTextColor="#A9A9A9"
-          value={searchText}
-          onChangeText={setSearchText} // Cập nhật searchText khi nhập liệu
-        />
-        <TouchableOpacity onPress={handleSearch}>
-          <Text style={styles.searchButton}>Search</Text>
+      <View style={styles.searchRow}>
+        <View style={styles.searchContainer}>
+          <Icon name="search" size={20} color="#A9A9A9" />
+          <TextInput
+            placeholder="Search"
+            style={styles.searchInput}
+            placeholderTextColor="#A9A9A9"
+            value={searchText}
+            onChangeText={setSearchText}
+          />
+          <TouchableOpacity onPress={handleSearch}>
+            <Text style={styles.searchButton}>Search</Text>
+          </TouchableOpacity>
+        </View>
+
+        <TouchableOpacity 
+          style={styles.filterIconContainer} 
+          onPress={() => navigation.navigate('Filter')}
+        >
+          <Icon name="sliders" size={24} color="brown" />
         </TouchableOpacity>
       </View>
 
@@ -77,12 +84,17 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    margin: 16,
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F5F5F5',
     borderRadius: 20,
-    margin: 16,
+    flex: 1,
     paddingHorizontal: 16,
     paddingVertical: 8,
   },
@@ -95,6 +107,10 @@ const styles = StyleSheet.create({
     color: '#007BFF',
     fontSize: 16,
     marginLeft: 10,
+  },
+  filterIconContainer: {
+    marginLeft: 10, // Khoảng cách giữa thanh tìm kiếm và biểu tượng slider
+    justifyContent: 'center',
   },
   recentContainer: {
     marginHorizontal: 16,

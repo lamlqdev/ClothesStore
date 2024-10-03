@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
 import MultiSlider from '@ptomasroos/react-native-multi-slider';
-import Header from '../components/Header'; // Sử dụng Header từ file bên ngoài
+import Header from '../components/Header';
 
 const FilterScreen = ({ navigation }) => {
   const [selectedBrand, setSelectedBrand] = useState('All');
