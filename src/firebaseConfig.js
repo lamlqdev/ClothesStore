@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { initializeAuth, getAuth, getReactNativePersistence, FacebookAuthProvider, GoogleAuthProvider } from 'firebase/auth';
+import { initializeAuth, getReactNativePersistence, FacebookAuthProvider, GoogleAuthProvider } from 'firebase/auth';
 import { getFirestore } from 'firebase/firestore'; // Import Firestore
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -21,17 +21,10 @@ if (getApps().length === 0) {
   app = getApp(); // Sử dụng Firebase app hiện có
 }
 
-// Kiểm tra và khởi tạo dịch vụ xác thực nếu chưa khởi tạo
-let auth;
-try {
-  // Thử lấy auth đã khởi tạo
-  auth = getAuth(app); 
-} catch (error) {
-  // Nếu chưa có auth, khởi tạo với persistence để lưu trạng thái đăng nhập
-  auth = initializeAuth(app, {
-    persistence: getReactNativePersistence(AsyncStorage)
-  });
-}
+// Khởi tạo Auth với AsyncStorage để lưu trạng thái xác thực
+const auth = initializeAuth(app, {
+  persistence: getReactNativePersistence(AsyncStorage) // Đảm bảo sử dụng AsyncStorage
+});
 
 // Khởi tạo Firestore
 const db = getFirestore(app); // Khởi tạo Firestore
@@ -42,4 +35,5 @@ const googleProvider = new GoogleAuthProvider();
 
 // Export các thành phần cần thiết
 export { auth, db, facebookProvider, googleProvider };
+
 

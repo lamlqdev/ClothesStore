@@ -17,10 +17,10 @@ const OrderCard = ({ productImage, productName, size, quantity, price, onClickBu
         <Text style={styles.price}>${price}</Text>
       </View>
 
-      <TouchableOpacity style={styles.button} onPress={onClickButton}>
+      {buttonText !== "" ? <TouchableOpacity style={styles.button} onPress={onClickButton}>
         <Text style={styles.buttonText}>{buttonText}</Text>
-      </TouchableOpacity>
-
+      </TouchableOpacity> : null}
+      
     </View>
   );
 };
