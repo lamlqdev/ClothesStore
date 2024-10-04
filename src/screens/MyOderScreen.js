@@ -53,8 +53,8 @@ const MyOrderScreen = () => {
     ];
 
     const handleTrackOrder = (item) => {
-        console.log('Tracking order for:', item.productName);
-    };
+        navigation.navigate('TrackOrder', { order: item });
+    };    
 
     const handleLeaveReview = (item) => {
         navigation.navigate('LeaveReview', { orderId: item.id });

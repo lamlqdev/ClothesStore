@@ -1,3 +1,4 @@
+import { title } from 'process';
 import React from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { View, Text, TextInput, Image, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
@@ -19,8 +20,7 @@ const products = [
   { id: 4, name: 'Red Dress', price: '$500.00', rating: 4.9, image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSf05jWbUmZSFcnHa2oJVV39tUvN-iJMpfyZw&s' }
 ];
 
-function HomeScreen() {
-  const navigation = useNavigation();
+function HomeScreen({navigation}) {
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>

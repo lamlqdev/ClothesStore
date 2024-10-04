@@ -1,15 +1,48 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
+import auth from '@react-native-firebase/auth';
+import firestore from '@react-native-firebase/firestore';
 
 const SignUpScreen = ({ navigation }) => {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false); // Thêm state để kiểm soát hiển thị mật khẩu
-
-  // Hàm để đổi trạng thái giữa hiển thị và che mật khẩu
+  const [showPassword, setShowPassword] = useState(false);
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
+  };
+
+  const handleSignUp = async () => {
+    if (email === '' || password === '' || name === '') {
+      Alert.alert('Error', 'All fields are required');
+      return;
+    }
+    try {
+      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+      const user = userCredential.user;
+
+      // Cập nhật tên người dùng
+      await user.updateProfile({
+        displayName: name,
+      });
+
+      // Gửi email xác nhận
+      await user.sendEmailVerification();
+
+      // Lưu thông tin người dùng vào Firestore
+      await firestore().collection('users').doc(user.uid).set({
+        userId: user.uid,
+        name: name,
+        membershipLevel: null,  // Mã hạng thành viên ban đầu là null
+        imageUrl: null,         // Hình ảnh ban đầu là null
+      });
+
+      Alert.alert('Success', 'Please verify your email address.');
+      navigation.navigate('SignIn');
+    } catch (error) {
+      console.error(error);
+      Alert.alert('Error', error.message);
+    }
   };
 
   return (
@@ -58,7 +91,7 @@ const SignUpScreen = ({ navigation }) => {
       </View>
 
       {/* Sign Up Button */}
-      <TouchableOpacity style={styles.button}>
+      <TouchableOpacity style={styles.button} onPress={handleSignUp}>
         <Text style={styles.buttonText}>Sign Up</Text>
       </TouchableOpacity>
 

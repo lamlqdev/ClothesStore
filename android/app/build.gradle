@@ -108,7 +108,9 @@ android {
         }
     }
 }
-
+repositories {
+        mavenCentral()
+    }
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
@@ -126,4 +128,8 @@ dependencies {
 
     // Thêm Firebase Analytics (hoặc bất kỳ sản phẩm Firebase nào khác bạn muốn sử dụng)
     implementation 'com.google.firebase:firebase-analytics'
+
+    implementation 'com.facebook.android:facebook-android-sdk:[8,9)'
+    implementation 'com.google.firebase:firebase-auth'
+
 }

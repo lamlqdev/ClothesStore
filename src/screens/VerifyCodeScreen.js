@@ -1,16 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import Header from '../components/Header';
 
 const VerifyCodeScreen = ({ route, navigation }) => {
   const [code, setCode] = useState('');
   const [email, setEmail] = useState('');
   const inputRef = useRef(null);
-  // Ẩn tiêu đề của thanh điều hướng khi màn hình được mở
-  useEffect(() => {
-    navigation.setOptions({
-      headerTitle: '', // Xóa tiêu đề
-    });
-  }, [navigation]);
+
   useEffect(() => {
     if (route.params?.email) {
       setEmail(route.params.email);
@@ -24,11 +20,9 @@ const VerifyCodeScreen = ({ route, navigation }) => {
   };
 
   const handleVerify = () => {
-    if (code.length === 4) {
-      console.log('Code entered:', code);
-      // Perform your verification logic here (e.g., check if the code is correct)
-
-      // After verifying, navigate to NewPasswordScreen
+    const { verificationCode } = route.params;
+    if (code === verificationCode) {
+      console.log('Code verified successfully');
       navigation.navigate('NewPassword');
     } else {
       console.log('Invalid code');
@@ -40,42 +34,41 @@ const VerifyCodeScreen = ({ route, navigation }) => {
   };
 
   return (
-<View style={styles.container} onTouchStart={() => inputRef.current.focus()}>
-  <Text style={styles.headerText}>Verify Code</Text>
-  <Text style={styles.subText}>Please enter the code we just sent to</Text>
-  
-  {/* Email sẽ nằm ở một dòng khác và có màu khác */}
-  <Text style={styles.emailText}>{email}</Text>
+    <View style={styles.container} onTouchStart={() => inputRef.current.focus()}>
+      <Header title="Verify Code" onBackPress={() => navigation.goBack()} />
+      <Text style={styles.headerText}>Verify Code</Text>
+      <Text style={styles.subText}>Please enter the code we just sent to</Text>
+      <Text style={styles.emailText}>{email}</Text>
 
-  <TextInput
-    ref={inputRef}
-    style={styles.hiddenInput}
-    keyboardType="numeric"
-    maxLength={4}
-    value={code}
-    onChangeText={handleChangeText}
-    autoFocus={true}
-  />
+      <TextInput
+        ref={inputRef}
+        style={styles.hiddenInput}
+        keyboardType="numeric"
+        maxLength={4}
+        value={code}
+        onChangeText={handleChangeText}
+        autoFocus={true}
+      />
 
-  <View style={styles.codeContainer}>
-    {Array(4).fill('').map((_, index) => (
-      <View key={index} style={styles.inputBox}>
-        <Text style={styles.inputText}>{code[index] || ''}</Text>
+      <View style={styles.codeContainer}>
+        {Array(4).fill('').map((_, index) => (
+          <View key={index} style={styles.inputBox}>
+            <Text style={styles.inputText}>{code[index] || ''}</Text>
+          </View>
+        ))}
       </View>
-    ))}
-  </View>
 
-  <View style={styles.resendContainer}>
-    <Text style={styles.resendText}>Didn’t receive OTP? </Text>
-    <TouchableOpacity onPress={resendCode}>
-      <Text style={styles.resendLink}>Resend code</Text>
-    </TouchableOpacity>
-  </View>
+      <View style={styles.resendContainer}>
+        <Text style={styles.resendText}>Didn’t receive OTP? </Text>
+        <TouchableOpacity onPress={resendCode}>
+          <Text style={styles.resendLink}>Resend code</Text>
+        </TouchableOpacity>
+      </View>
 
-  <TouchableOpacity style={styles.button} onPress={handleVerify}>
-    <Text style={styles.buttonText}>Verify</Text>
-  </TouchableOpacity>
-</View>
+      <TouchableOpacity style={styles.button} onPress={handleVerify}>
+        <Text style={styles.buttonText}>Verify</Text>
+      </TouchableOpacity>
+    </View>
   );
 };
 

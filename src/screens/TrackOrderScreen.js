@@ -7,6 +7,7 @@ import OrderList from '../components/OrderList'
 import Separator from '../components/Separator'
 import OrderDetails from '../components/OrderDetail'
 import OrderStatus from '../components/OrderStatus'
+import { useRoute } from '@react-navigation/native';
 
 const activeOrders = [
   {
@@ -46,8 +47,10 @@ const statuses = [
   },
 ];
 
-const TrackOrderScreen = () => {
+const TrackOrderScreen = ({navigation}) => {
 
+  const route = useRoute();
+  const { order } = route.params;
   const handleTrackOrder = (item) => {
     console.log('Tracking order for:', item.productName);
 };
@@ -55,7 +58,9 @@ const TrackOrderScreen = () => {
   return (
     <View style={styles.container}>
       <View>
-      <Header title="Track Order" />
+      <Header title="Track Order" 
+       onBackPress={() => navigation.goBack()}
+      />
       <OrderList
         orderList={activeOrders.map(order => ({
             ...order,
