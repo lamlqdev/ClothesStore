@@ -258,17 +258,18 @@ const styles = StyleSheet.create({
     alignItems: 'center'
   },
   quantityButton: {
-    padding: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
     backgroundColor: Colors.Brown,
     borderRadius: 5,
   },
   quantityText: {
-    fontSize: 18,
+    fontSize: 20,
     color: 'white',
   },
   quantityNumber: {
-    marginHorizontal: 8,
-    fontSize: 16,
+    marginHorizontal: 12,
+    fontSize: 18,
   },
   promoContainer: {
     flexDirection: 'row',
