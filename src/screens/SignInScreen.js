@@ -128,27 +128,6 @@ const SignInScreen = ({ navigation, onLogin }) => {
     } catch (error) {
       Alert.alert("Google Login Failed", error.message);
     }
-  };  
-  
-
-  GoogleSignin.configure({
-    webClientId: '799913536954-4p5dfasc62kps9qtuqhe3bjaaiehasbb.apps.googleusercontent.com',
-  });
-
-  const handleGoogleSignIn = async () => {
-    try {
-      await GoogleSignin.hasPlayServices();
-      const { idToken } = await GoogleSignin.signIn();
-
-      // Tạo một đối tượng credential từ idToken
-      const googleCredential = auth.GoogleAuthProvider.credential(idToken);
-
-      // Đăng nhập vào Firebase
-      await auth().signInWithCredential(googleCredential);
-      onLogin();
-    } catch (error) {
-      console.error(error);
-    }
   };
 
   return (
