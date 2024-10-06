@@ -1,29 +1,38 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import auth from '@react-native-firebase/auth';
+import Header from '../components/Header';
 
 const NewPasswordScreen = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);  // State để theo dõi trạng thái hiển thị mật khẩu
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);  // State cho confirm password
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   const navigation = useNavigation();
 
-  // Cấu hình header để chỉ có nút back, không có tiêu đề
-  useEffect(() => {
-    navigation.setOptions({
-      headerTitle: "",  // Ẩn tiêu đề
-    });
-  }, [navigation]);
-
   const handleCreatePassword = () => {
     if (password !== confirmPassword) {
-      console.log('Passwords do not match.');
-    } else {
-      console.log('Password set successfully.');
-      // Further actions here
+      Alert.alert('Validation', 'Passwords do not match.');
+      return;
     }
+
+    if (password.length < 6) {
+      Alert.alert('Validation', 'Password must be at least 6 characters.');
+      return;
+    }
+
+    auth()
+      .currentUser.updatePassword(password)
+      .then(() => {
+        Alert.alert('Success', 'Password has been updated successfully.');
+        navigation.navigate('SignIn'); // Điều hướng về màn hình SignIn sau khi đặt mật khẩu thành công
+      })
+      .catch(error => {
+        console.log('Error updating password:', error);
+        Alert.alert('Error', error.message);
+      });
   };
 
   const toggleShowPassword = () => {
@@ -36,9 +45,8 @@ const NewPasswordScreen = () => {
 
   return (
     <View style={styles.container}>
-
+      <Header title="New Password" onBackPress={() => navigation.goBack()} />
       <Text style={styles.title}>New Password</Text>
-      {/* Nội dung */}
       <Text style={styles.subText}>
         Your new password must be different from previously used passwords.
       </Text>
@@ -46,7 +54,7 @@ const NewPasswordScreen = () => {
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          secureTextEntry={!showPassword}  // Ẩn/hiện mật khẩu dựa vào trạng thái
+          secureTextEntry={!showPassword}
           placeholder="Password"
           value={password}
           onChangeText={setPassword}
@@ -54,8 +62,8 @@ const NewPasswordScreen = () => {
         <TouchableOpacity onPress={toggleShowPassword}>
           <Image
             source={showPassword
-              ? require('../../assets/icons/ic_openeye.png')  // Biểu tượng mắt mở
-              : require('../../assets/icons/ic_blindeye.png')}  // Biểu tượng mắt đóng
+              ? require('../../assets/icons/ic_openeye.png')
+              : require('../../assets/icons/ic_blindeye.png')}
             style={styles.icon}
           />
         </TouchableOpacity>
@@ -64,7 +72,7 @@ const NewPasswordScreen = () => {
       <View style={styles.inputContainer}>
         <TextInput
           style={styles.input}
-          secureTextEntry={!showConfirmPassword}  // Ẩn/hiện xác nhận mật khẩu dựa vào trạng thái
+          secureTextEntry={!showConfirmPassword}
           placeholder="Confirm Password"
           value={confirmPassword}
           onChangeText={setConfirmPassword}
@@ -72,8 +80,8 @@ const NewPasswordScreen = () => {
         <TouchableOpacity onPress={toggleShowConfirmPassword}>
           <Image
             source={showConfirmPassword
-              ? require('../../assets/icons/ic_openeye.png')  // Biểu tượng mắt mở
-              : require('../../assets/icons/ic_blindeye.png')}  // Biểu tượng mắt đóng
+              ? require('../../assets/icons/ic_openeye.png')
+              : require('../../assets/icons/ic_blindeye.png')}
             style={styles.icon}
           />
         </TouchableOpacity>

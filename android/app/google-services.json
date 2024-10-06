@@ -12,7 +12,28 @@
           "package_name": "com.clothesstore"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "799913536954-4p5dfasc62kps9qtuqhe3bjaaiehasbb.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.clothesstore",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "799913536954-9t7uehenihfgqh3gpns6lmukebt0ld94.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.clothesstore",
+            "certificate_hash": "0f3eb75c87ffc1674d0ef44eac2f84fc807b7168"
+          }
+        },
+        {
+          "client_id": "799913536954-rpaevl1jranhdvkngd9vgibpueda8k8i.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyC1E_w3n_Zr0Emdm1klVGXU8qeqRa-74BQ"
@@ -20,7 +41,12 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "799913536954-rpaevl1jranhdvkngd9vgibpueda8k8i.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
         }
       }
     }

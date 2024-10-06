@@ -1,26 +1,64 @@
-import React from 'react';
-import { useNavigation } from '@react-navigation/native';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, Image, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
-import { Colors } from 'react-native/Libraries/NewAppScreen';
+import firestore from '@react-native-firebase/firestore';
+import { Colors } from '../constants/colors';
 
-const categories = [
-  { id: 1, name: 'T-Shirt', icon: 'tshirt' },
-  { id: 2, name: 'Pant', icon: 'user-tie' },
-  { id: 3, name: 'Dress', icon: 'female' },
-  { id: 4, name: 'Jacket', icon: 'tshirt' }
-];
+const ITEMS_PER_PAGE = 6;
 
-const products = [
-  { id: 1, name: 'Brown Jacket', price: '$83.97', rating: 4.9, image: 'https://thursdayboots.com/cdn/shop/products/1024x1024-Men-Moto-Tobacco-050322-1_1024x1024.jpg?v=1652112663' },
-  { id: 2, name: 'Brown Suite', price: '$120.00', rating: 5.0, image: 'https://brabions.com/cdn/shop/products/image_20cb4685-80d3-43fa-b180-98cc626964dd.jpg?v=1620246884' },
-  { id: 3, name: 'Yellow Shirt', price: '$60.00', rating: 4.8, image: 'https://m.media-amazon.com/images/I/6155ycyBqWL._AC_UY1000_.jpg' },
-  { id: 4, name: 'Red Dress', price: '$500.00', rating: 4.9, image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSf05jWbUmZSFcnHa2oJVV39tUvN-iJMpfyZw&s' }
-];
+function HomeScreen({ navigation }) {
+  const [categories, setCategories] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
 
-function HomeScreen() {
-  const navigation = useNavigation();
+  const shuffleArray = (array) => {
+    return array.sort(() => Math.random() - 0.5);
+  };
+
+  // Lấy dữ liệu từ Firestore
+  useEffect(() => {
+    const fetchCategories = async () => {
+      try {
+        const categoryList = [];
+        const snapshot = await firestore().collection('Categories').get();
+        snapshot.forEach(doc => {
+          categoryList.push({ id: doc.id, ...doc.data() });
+        });
+        setCategories(categoryList);
+      } catch (error) {
+        console.error("Error fetching categories: ", error);
+      }
+    };
+
+    const fetchProducts = async () => {
+      try {
+        const productList = [];
+        const snapshot = await firestore().collection('Products').get();
+        snapshot.forEach(doc => {
+          productList.push({ id: doc.id, ...doc.data() });
+        });
+        // Sắp xếp ngẫu nhiên sản phẩm
+        setProducts(shuffleArray(productList));
+      } catch (error) {
+        console.error("Error fetching products: ", error);
+      }
+    };
+
+    fetchCategories();
+    fetchProducts();
+  }, []);
+
+  const renderIcon = (library, iconName, size, color) => {
+    switch (library) {
+      case 'FontAwesome5':
+        return <FontAwesome5 name={iconName} size={size} color={color} />;
+      case 'FontAwesome':
+        return <Icon name={iconName} size={size} color={color} />;
+      default:
+        return <Icon name="question-circle" size={size} color={color} />; // Default icon nếu không tìm thấy
+    }
+  };
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
@@ -93,28 +131,84 @@ function HomeScreen() {
           <Text style={styles.productRatingText}>{item.rating}</Text>
         </View>
       </View>
-      <Text style={styles.productPrice}>{item.price}</Text>
+      <Text style={styles.productPrice}>${item.price}</Text>
       <TouchableOpacity style={styles.wishlistIcon}>
         <Icon name="heart" size={20} color="gray" />
       </TouchableOpacity>
     </View>
   );
 
+  const totalPages = Math.ceil(products.length / ITEMS_PER_PAGE);
+  const currentProducts = products.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
+
+  const renderPagination = () => (
+    <View style={styles.paginationContainer}>
+      <View style={styles.paginationInnerContainer}>
+        {[...Array(totalPages)].map((_, index) => {
+          const pageNumber = index + 1;
+          return (
+            <TouchableOpacity
+              key={pageNumber}
+              style={[
+                styles.pageButton,
+                currentPage === pageNumber ? styles.activePageButton : styles.inactivePageButton,
+              ]}
+              onPress={() => setCurrentPage(pageNumber)}
+            >
+              <Text style={styles.pageButtonText}>{pageNumber}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
+
   return (
-    <FlatList
-      data={products}
-      renderItem={renderItem}
-      keyExtractor={item => item.id.toString()}
-      ListHeaderComponent={renderHeader}
-      contentContainerStyle={{ paddingBottom: 80 }}
-      numColumns={2}
-    />
+    <View style={styles.container}>
+      <FlatList
+        data={currentProducts}
+        renderItem={renderItem}
+        keyExtractor={item => item.id.toString()}
+        ListHeaderComponent={renderHeader}
+        contentContainerStyle={{ paddingBottom: 40 }}
+        numColumns={2}
+      />
+      {renderPagination()}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+  },
   headerContainer: {
     paddingBottom: 16,
+  },
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    marginVertical: 16,
+    marginBottom: 72,
+  },
+  paginationInnerContainer: {
+    flexDirection: 'row',
+  },
+  pageButton: {
+    width: 30,
+    height: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 5,
+  },
+  activePageButton: {
+    backgroundColor: Colors.Brown,
+  },
+  inactivePageButton: {
+    backgroundColor: 'white',
+  },
+  pageButtonText: {
+    color: 'black',
   },
   icon: {
     marginLeft: 15
@@ -186,7 +280,8 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 18,
-    fontWeight: 'bold'
+    fontWeight: 'bold',
+    color: 'red'
   },
   seeAll: {
     color: 'brown',
@@ -249,7 +344,7 @@ const styles = StyleSheet.create({
     borderRadius: 8
   },
   productName: {
-    fontSize: 16,
+    fontSize: 19,
     marginVertical: 8,
     color: "black",
     fontWeight: "bold"
@@ -261,7 +356,8 @@ const styles = StyleSheet.create({
     marginVertical: 8
   },
   productPrice: {
-    fontSize: 14,
+    fontSize: 16,
+    fontWeight: 'bold',
     color: 'black'
   },
   productRating: {

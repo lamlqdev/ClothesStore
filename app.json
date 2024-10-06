@@ -1,4 +1,13 @@
 {
+  "expo": {
+    "plugins": [
+      "@react-native-google-signin/google-signin"
+    ],
+    "android": {
+      "googleServicesFile": "./google-services.json"
+    }
+  },
   "name": "ClothesStore",
   "displayName": "ClothesStore"
 }
+
