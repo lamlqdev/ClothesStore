@@ -218,13 +218,6 @@ function HomeScreen({ navigation }) {
             Closing in: <Text style={styles.closingInTime}>02:12:56</Text>
           </Text>
         </View>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filterContainer}>
-          <Text style={styles.filterText}>All</Text>
-          <Text style={styles.filterText}>Woman</Text>
-          <Text style={styles.filterText}>Man</Text>
-          <Text style={styles.filterText}>Newest</Text>
-          <Text style={styles.filterText}>Popular</Text>
-        </ScrollView>
       </View>
     </View>
   );
@@ -429,17 +422,6 @@ const styles = StyleSheet.create({
   closingInTime: {
     color: 'red',
     fontWeight: 'bold'
-  },
-  filterContainer: {
-    flexDirection: 'row',
-    marginTop: 16,
-    paddingHorizontal: 10
-  },
-  filterText: {
-    marginRight: 45,
-    fontSize: 20,
-    fontWeight: '500',
-    color: '#333'
   },
   productCard: {
     width: '48%',
