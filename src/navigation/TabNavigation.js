@@ -73,7 +73,7 @@ const Tabs = ({ onLogout }) => {
             }}
         >
             <Tab.Screen
-                name="HomeScreen"
+                name="Home"
                 component={HomeScreen}
                 options={{
                     tabBarIcon: ({ focused }) => (

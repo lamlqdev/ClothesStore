@@ -128,7 +128,7 @@ const CartScreen = () => {
   return (
     <GestureHandlerRootView style={{ flex: 1, paddingBottom: 80 }}>
       <View style={styles.container}>
-        <Header title="My Cart" onBackPress={undefined} />
+        <Header title="My Cart" onBackPress={() => navigation.goBack()} />
         <FlatList
           data={items}
           renderItem={renderCartItem}

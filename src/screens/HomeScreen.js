@@ -4,13 +4,82 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import firestore from '@react-native-firebase/firestore';
 import { Colors } from '../constants/colors';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
 const ITEMS_PER_PAGE = 6;
 
 function HomeScreen({ navigation }) {
+  const [userId, setUserId] = useState(null);
   const [categories, setCategories] = useState([]);
   const [products, setProducts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
+  const [wishlist, setWishlist] = useState({});
+
+  useEffect(() => {
+    const getUserId = async () => {
+      const id = await AsyncStorage.getItem('userId');
+      console.log("User ID:", id);
+      setUserId(id);
+    };
+    getUserId();
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchWishlist = async () => {
+        if (!userId) return;
+
+        const userDoc = await firestore().collection('users').doc(userId).get();
+        if (userDoc.exists) {
+          const currentWishlist = Array.isArray(userDoc.data().wishlist) ? userDoc.data().wishlist : [];
+          const wishlistObject = {};
+          currentWishlist.forEach(id => {
+            wishlistObject[id] = true;
+          });
+          setWishlist(wishlistObject);
+        }
+      };
+
+      fetchWishlist();
+    }, [userId])
+  );
+
+  const toggleWishlist = async (productId) => {
+    if (!userId) {
+      console.error("User ID not found!");
+      return;
+    }
+
+    const userRef = firestore().collection('users').doc(userId);
+    try {
+      const userDoc = await userRef.get();
+      const currentWishlist = Array.isArray(userDoc.data().wishlist) ? userDoc.data().wishlist : [];
+
+      let updatedWishlist;
+      if (currentWishlist.includes(productId)) {
+        updatedWishlist = currentWishlist.filter(id => id !== productId); // Xóa sản phẩm
+      } else {
+        updatedWishlist = [...currentWishlist, productId]; // Thêm sản phẩm
+      }
+
+      await userRef.update({ wishlist: updatedWishlist });
+
+      // Cập nhật wishlist trong state
+      setWishlist((prevWishlist) => {
+        const newWishlist = { ...prevWishlist };
+        if (newWishlist[productId]) {
+          delete newWishlist[productId]; // Nếu đã có thì xóa
+        } else {
+          newWishlist[productId] = true; // Nếu chưa có thì thêm
+        }
+        return newWishlist;
+      });
+    } catch (error) {
+      console.error("Error updating wishlist: ", error);
+    }
+  };
+
 
   const shuffleArray = (array) => {
     return array.sort(() => Math.random() - 0.5);
@@ -45,9 +114,42 @@ function HomeScreen({ navigation }) {
       }
     };
 
+    const fetchWishlist = async () => {
+      if (!userId) return;
+      try {
+        const userDoc = await firestore()
+          .collection('users')
+          .doc(userId)
+          .get();
+
+        if (userDoc.exists) {
+          const currentWishlist = Array.isArray(userDoc.data().wishlist) ? userDoc.data().wishlist : [];
+          const wishlistObject = {};
+
+          currentWishlist.forEach(id => {
+            wishlistObject[id] = true;
+          });
+
+          setWishlist(wishlistObject);
+        }
+      } catch (error) {
+        console.error("Error fetching wishlist: ", error);
+      }
+    };
+
     fetchCategories();
     fetchProducts();
-  }, []);
+    fetchWishlist();
+  }, [userId]);
+
+  const handleWishlistChange = (updatedWishlist) => {
+    // Cập nhật wishlist khi quay lại từ ProductDetail
+    const wishlistObject = {};
+    updatedWishlist.forEach(id => {
+      wishlistObject[id] = true;
+    });
+    setWishlist(wishlistObject);
+  };
 
   const renderIcon = (library, iconName, size, color) => {
     switch (library) {
@@ -56,7 +158,7 @@ function HomeScreen({ navigation }) {
       case 'FontAwesome':
         return <Icon name={iconName} size={size} color={color} />;
       default:
-        return <Icon name="question-circle" size={size} color={color} />; // Default icon nếu không tìm thấy
+        return <Icon name="question-circle" size={size} color={color} />;
     }
   };
 
@@ -122,7 +224,9 @@ function HomeScreen({ navigation }) {
   );
 
   const renderItem = ({ item }) => (
-    <View style={styles.productCard}>
+    <TouchableOpacity
+      onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
+      style={styles.productCard}>
       <Image source={{ uri: item.image }} style={styles.productImage} />
       <View style={styles.productInfo}>
         <Text style={styles.productName}>{item.name}</Text>
@@ -132,10 +236,12 @@ function HomeScreen({ navigation }) {
         </View>
       </View>
       <Text style={styles.productPrice}>${item.price}</Text>
-      <TouchableOpacity style={styles.wishlistIcon}>
-        <Icon name="heart" size={20} color="gray" />
+      <TouchableOpacity
+        style={styles.wishlistIcon}
+        onPress={() => toggleWishlist(item.id)}>
+        <Icon name="heart" size={20} color={wishlist[item.id] ? 'brown' : 'gray'} />
       </TouchableOpacity>
-    </View>
+    </TouchableOpacity>
   );
 
   const totalPages = Math.ceil(products.length / ITEMS_PER_PAGE);

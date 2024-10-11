@@ -1,14 +1,8 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 
-const ProductCard = ({ item, onPress }) => {
-  const [isWished, setIsWished] = useState(false);
-
-  const handleWishlistToggle = () => {
-    setIsWished(!isWished);
-  };
-
+const ProductCard = ({ item, onPress, isWished, onWishlistToggle }) => {
   return (
     <View style={styles.productCard}>
       <TouchableOpacity onPress={onPress}>
@@ -22,11 +16,13 @@ const ProductCard = ({ item, onPress }) => {
         </View>
         <Text style={styles.productPrice}>{item.price}</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.wishlistIcon} onPress={handleWishlistToggle}>
+      <TouchableOpacity style={styles.wishlistIcon} onPress={onWishlistToggle}>
         <View style={[styles.wishlistCircle, isWished && styles.wishedCircle]}>
           <Icon name="heart" size={18} color={isWished ? '#fff' : 'gray'} />
         </View>
       </TouchableOpacity>
+
+
     </View>
   );
 };

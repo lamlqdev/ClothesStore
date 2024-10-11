@@ -1,12 +1,41 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { fontSize, iconSize, spacing } from '../constants/dimensions';
+import firestore from '@react-native-firebase/firestore';
+import { fontSize } from '../constants/dimensions';
 import { Fonts } from '../constants/fonts';
 import { Colors } from '../constants/colors';
 
-const SelectSize = () => {
+const SelectSize = ({ productId }) => {
   const [selectedSize, setSelectedSize] = useState(null);
-  const sizes = ['S', 'M', 'L', 'XL', 'XXL'];
+  const [sizes, setSizes] = useState([]);
+
+  useEffect(() => {
+    const fetchSizes = async () => {
+      try {
+        const sizeSnapshot = await firestore()
+          .collection('ProductType')
+          .where('productId', '==', productId)
+          .get();
+
+        if (!sizeSnapshot.empty) {
+          const sizesData = sizeSnapshot.docs.flatMap(doc => {
+            const sizeArray = doc.data().size;
+            return sizeArray.map(size => ({
+              size: size,
+              quantity: doc.data().quantity,
+            }));
+          });
+          setSizes(sizesData);
+        } else {
+          console.error('No sizes found for this product.');
+        }
+      } catch (error) {
+        console.error('Error fetching sizes:', error);
+      }
+    };
+
+    fetchSizes();
+  }, [productId]);
 
   const handleSelectSize = (size) => {
     setSelectedSize(size);
@@ -16,22 +45,22 @@ const SelectSize = () => {
     <View style={styles.container}>
       <Text style={styles.title}>Select Size</Text>
       <View style={styles.sizeContainer}>
-        {sizes.map((size) => (
+        {sizes.map((sizeObj) => (
           <TouchableOpacity
-            key={size}
+            key={sizeObj.size}
             style={[
               styles.sizeButton,
-              selectedSize === size && styles.selectedButton,
+              selectedSize === sizeObj.size && styles.selectedButton,
             ]}
-            onPress={() => handleSelectSize(size)}
+            onPress={() => handleSelectSize(sizeObj.size)}
           >
             <Text
               style={[
                 styles.sizeText,
-                selectedSize === size && styles.selectedText,
+                selectedSize === sizeObj.size && styles.selectedText,
               ]}
             >
-              {size}
+              {sizeObj.size}
             </Text>
           </TouchableOpacity>
         ))}
@@ -54,6 +83,7 @@ const styles = StyleSheet.create({
   },
   sizeContainer: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     justifyContent: 'flex-start',
   },
   sizeButton: {
@@ -62,7 +92,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
     paddingVertical: 10,
     paddingHorizontal: 15,
-    marginHorizontal: 5,
+    margin: 5,
   },
   selectedButton: {
     backgroundColor: Colors.Brown,

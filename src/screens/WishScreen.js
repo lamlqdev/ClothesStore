@@ -1,38 +1,125 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StatusBar, StyleSheet, FlatList } from 'react-native';
 import { Colors } from '../constants/colors';
 import Header from '../components/Header';
-import { fontSize, iconSize, spacing } from '../constants/dimensions';
+import { spacing } from '../constants/dimensions';
 import Category from '../components/Category';
 import ProductCard from '../components/ProductCard';
 import { useNavigation } from '@react-navigation/native';
+import firestore from '@react-native-firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useFocusEffect } from '@react-navigation/native';
 
-const categories = ['All', 'Jacket', 'Shirt', 'Pant', 'T-Shirt', 'Dress']
-
-const products = [
-  { id: 1, name: 'Brown Jacket', price: '$83.97', rating: 4.9, image: 'https://thursdayboots.com/cdn/shop/products/1024x1024-Men-Moto-Tobacco-050322-1_1024x1024.jpg?v=1652112663' },
-  { id: 2, name: 'Brown Suite', price: '$120.00', rating: 5.0, image: 'https://brabions.com/cdn/shop/products/image_20cb4685-80d3-43fa-b180-98cc626964dd.jpg?v=1620246884' },
-  { id: 3, name: 'Yellow Shirt', price: '$60.00', rating: 4.8, image: 'https://m.media-amazon.com/images/I/6155ycyBqWL._AC_UY1000_.jpg' },
-  { id: 4, name: 'Red Dress', price: '$500.00', rating: 4.9, image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSf05jWbUmZSFcnHa2oJVV39tUvN-iJMpfyZw&s' },
-  { id: 5, name: 'Yellow Shirt', price: '$60.00', rating: 4.8, image: 'https://m.media-amazon.com/images/I/6155ycyBqWL._AC_UY1000_.jpg' },
-  { id: 6, name: 'Red Dress', price: '$500.00', rating: 4.9, image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSf05jWbUmZSFcnHa2oJVV39tUvN-iJMpfyZw&s' }
-];
+const categories = ['All', 'Jacket', 'Shirt', 'Pant', 'T-Shirt', 'Dress'];
 
 const WishScreen = () => {
   const [selectedCategory, setSelectedCategory] = useState(null);
+  const [wishlistItems, setWishlistItems] = useState([]);  // Lưu danh sách productId
+  const [products, setProducts] = useState([]);  // Lưu thông tin chi tiết sản phẩm
   const navigation = useNavigation();
+  const [userId, setUserId] = useState(null);
+
+  useEffect(() => {
+    const getUserId = async () => {
+      const id = await AsyncStorage.getItem('userId');
+      setUserId(id);
+    };
+    getUserId();
+  }, []);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      const fetchWishlist = async () => {
+        if (!userId) return;
+
+        const userDoc = await firestore().collection('users').doc(userId).get();
+        if (userDoc.exists) {
+          const currentWishlist = Array.isArray(userDoc.data().wishlist) ? userDoc.data().wishlist : [];
+          const productPromises = currentWishlist.map(async (productId) => {
+            const productDoc = await firestore().collection('Products').doc(productId).get();
+            return productDoc.exists ? { id: productId, ...productDoc.data() } : null;
+          });
+          const productList = await Promise.all(productPromises);
+          setProducts(productList.filter(product => product !== null));
+        }
+      };
+
+      fetchWishlist();
+    }, [userId])
+  );
+
+  useEffect(() => {
+    const fetchWishlist = async () => {
+      if (!userId) return;
+
+      const userRef = firestore().collection('users').doc(userId);
+      try {
+        const userDoc = await userRef.get();
+        const currentWishlist = Array.isArray(userDoc.data().wishlist) ? userDoc.data().wishlist : [];
+
+        // Lấy thông tin chi tiết từng sản phẩm từ Firestore dựa trên productId
+        const productPromises = currentWishlist.map(async (productId) => {
+          const productDoc = await firestore().collection('Products').doc(productId).get();
+          return productDoc.exists ? { id: productId, ...productDoc.data() } : null;
+        });
+
+        const productList = await Promise.all(productPromises);
+        setProducts(productList.filter(product => product !== null));  // Lọc bỏ sản phẩm không tồn tại
+
+      } catch (error) {
+        console.error("Error fetching wishlist: ", error);
+      }
+    };
+
+    if (userId) {
+      fetchWishlist();
+    }
+  }, [userId]);
+
+  const toggleWishlist = async (productId) => {
+    if (!userId) return;
+
+    const userRef = firestore().collection('users').doc(userId);
+    try {
+      const userDoc = await userRef.get();
+      const currentWishlist = Array.isArray(userDoc.data().wishlist) ? userDoc.data().wishlist : [];
+
+      // Cập nhật wishlist
+      let updatedWishlist;
+      if (currentWishlist.includes(productId)) {
+        updatedWishlist = currentWishlist.filter(id => id !== productId); // Xóa sản phẩm
+        // Cập nhật lại danh sách sản phẩm
+        setProducts(prevProducts => prevProducts.filter(product => product.id !== productId));
+      } else {
+        updatedWishlist = [...currentWishlist, productId]; // Thêm sản phẩm
+      }
+
+      // Cập nhật wishlist trong Firestore
+      await userRef.update({ wishlist: updatedWishlist });
+      // Cập nhật wishlist items
+      setWishlistItems(updatedWishlist);
+    } catch (error) {
+      console.error("Error updating wishlist: ", error);
+    }
+  };
+
+
+  if (!userId) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.message}>Please log in to view your wishlist.</Text>
+      </View>
+    );
+  }
 
   return (
     <View style={styles.container}>
-      <StatusBar 
-        barStyle="dark-content" 
-        backgroundColor={Colors.White}
-      />
-      <Header title={"My wishlist"}/>
+      <StatusBar barStyle="dark-content" backgroundColor={Colors.White} />
+      <Header title={"My wishlist"} />
       <FlatList
         data={categories}
-        renderItem={({item}) => (
-          <Category 
+        renderItem={({ item }) => (
+          <Category
             item={item}
             selectedCategory={selectedCategory}
             setSelectedCategory={setSelectedCategory}
@@ -45,10 +132,12 @@ const WishScreen = () => {
       />
 
       <FlatList
-        data={products}
-        renderItem={({item}) => (
-          <ProductCard 
+        data={products}  // Hiển thị thông tin chi tiết sản phẩm
+        renderItem={({ item }) => (
+          <ProductCard
             item={item}
+            isWished={true}  // Vì đây là wishlist
+            onWishlistToggle={() => toggleWishlist(item.id)}
             onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
           />
         )}
@@ -64,7 +153,13 @@ const WishScreen = () => {
 const styles = StyleSheet.create({
   container: {
     padding: spacing.sm,
-    backgroundColor: Colors.White
+    backgroundColor: Colors.White,
+  },
+  message: {
+    textAlign: 'center',
+    marginTop: 20,
+    fontSize: 16,
+    color: Colors.Gray,
   },
   categoryContainer: {
     marginTop: 15,
@@ -72,7 +167,7 @@ const styles = StyleSheet.create({
   productContainer: {
     marginTop: 15,
     marginBottom: 140,
-  }
-})
+  },
+});
 
 export default WishScreen;

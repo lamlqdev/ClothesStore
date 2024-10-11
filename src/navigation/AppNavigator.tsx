@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import Tabs from './TabNavigation';
 import FilterScreen from '../screens/FilterScreen';
@@ -24,11 +24,24 @@ import MyOderScreen from '../screens/MyOderScreen';
 import TrackOrder from '../screens/TrackOrderScreen';
 import LeaveReviewScreen from '../screens/LeaveReviewScreen';
 import ProductDetail from '../screens/ProductDetail';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Stack = createStackNavigator();
 
 const AppNavigator = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
+  useEffect(() => {
+    const checkLoginStatus = async () => {
+      const userId = await AsyncStorage.getItem('userId');
+      if (userId) {
+        setIsLoggedIn(true);
+      } else {
+        setIsLoggedIn(false);
+      }
+    };
+    checkLoginStatus();
+  }, []);
 
   const handleLogin = () => {
     setIsLoggedIn(true);
@@ -64,7 +77,7 @@ const AppNavigator = () => {
       ) : (
         <>
           <Stack.Screen name="SignIn">
-            {props => <SignInScreen {...props} onLogin={handleLogin} />}
+            {props => <SignInScreen {...props} onlogin={handleLogin} />}
           </Stack.Screen>
           <Stack.Screen name="SignUp" component={SignUpScreen} />
           <Stack.Screen name="VerifyCode" component={VerifyCodeScreen} />

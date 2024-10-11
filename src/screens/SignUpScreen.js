@@ -35,6 +35,7 @@ const SignUpScreen = ({ navigation }) => {
         name: name,
         membershipLevel: null,  // Mã hạng thành viên ban đầu là null
         imageUrl: null,         // Hình ảnh ban đầu là null
+        wishlist: []
       });
 
       Alert.alert('Success', 'Please verify your email address.');

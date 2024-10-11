@@ -6,7 +6,7 @@ import AppNavigator from './src/navigation/AppNavigator';
 const App = () => {
   return (
     <NavigationContainer>
-      <AppNavigator/>
+      <AppNavigator />
     </NavigationContainer>
   )
 }

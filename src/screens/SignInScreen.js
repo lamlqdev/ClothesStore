@@ -1,130 +1,102 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
-import { signInWithEmailAndPassword, signInWithCredential, FacebookAuthProvider, GoogleAuthProvider } from 'firebase/auth'; // Import thêm GoogleAuthProvider
+import { signInWithEmailAndPassword, signInWithCredential, FacebookAuthProvider, GoogleAuthProvider } from 'firebase/auth';
 import { auth, db } from '../firebaseConfig';
 import { LoginManager, AccessToken } from 'react-native-fbsdk-next';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
-import { doc, getDoc, setDoc } from 'firebase/firestore'; // Import Firestore
+import { doc, getDoc, setDoc } from 'firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-const SignInScreen = ({ navigation, onLogin }) => {
+const SignInScreen = ({ navigation, onlogin }) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
   // Cấu hình Google Sign-In
   GoogleSignin.configure({
-    webClientId: '799913536954-rpaevl1jranhdvkngd9vgibpueda8k8i.apps.googleusercontent.com', 
+    webClientId: '799913536954-rpaevl1jranhdvkngd9vgibpueda8k8i.apps.googleusercontent.com',
   });
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
   };
 
-  const handleSignIn = () => {
-    signInWithEmailAndPassword(auth, email, password)
-      .then((userCredential) => {
-        const user = userCredential.user;
-        // Kiểm tra xem email đã được xác nhận chưa
-        if (user.emailVerified) {
-          Alert.alert("Login Successful", `Welcome back, ${user.email}`);
-          onLogin();
-          navigation.navigate('HomeScreen');
-        } else {
-          // Nếu email chưa được xác nhận
-          Alert.alert(
-            "Email Not Verified", 
-            "Please verify your email before logging in. Check your inbox for the verification link."
-          );
-          // Đăng xuất ngay lập tức để không giữ người dùng đăng nhập
-          auth.signOut();
-        }
-      })
-      .catch((error) => {
-        Alert.alert("Login Failed", error.message);
-      });
-  };  
+  const handleSignIn = async () => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+
+      if (user.emailVerified) {
+        await AsyncStorage.setItem('userId', user.uid); // Lưu userId vào AsyncStorage
+        Alert.alert("Login Successful", `Welcome back, ${user.email}`);
+        onlogin();
+        navigation.navigate('Home');
+      } else {
+        Alert.alert("Email Not Verified", "Please verify your email before logging in.");
+        auth.signOut();
+      }
+    } catch (error) {
+      Alert.alert("Login Failed", error.message);
+    }
+  };
 
   const onFacebookButtonPress = async () => {
     try {
       const result = await LoginManager.logInWithPermissions(['public_profile', 'email']);
-      
-      if (result.isCancelled) {
-        throw 'User cancelled the login process';
-      }
-  
+      if (result.isCancelled) throw 'User cancelled the login process';
+
       const data = await AccessToken.getCurrentAccessToken();
-  
-      if (!data) {
-        throw 'Something went wrong obtaining access token';
-      }
-  
+      if (!data) throw 'Something went wrong obtaining access token';
+
       const facebookCredential = FacebookAuthProvider.credential(data.accessToken);
       const userCredential = await signInWithCredential(auth, facebookCredential);
       const user = userCredential.user;
-  
-      // Lấy tên từ Facebook
-      const name = user.displayName || "User"; // Sử dụng tên người dùng hoặc mặc định là "User"
-  
-      // Kiểm tra email trong Firestore
+
       const userDoc = await getDoc(doc(db, 'users', user.uid));
-  
       if (!userDoc.exists()) {
-        // Nếu người dùng chưa tồn tại, thêm mới vào Firestore
         await setDoc(doc(db, 'users', user.uid), {
           userId: user.uid,
-          name: name,
-          membershipLevel: null,  // Mã hạng thành viên ban đầu là null
-          imageUrl: null,         // Hình ảnh ban đầu là null
+          name: user.displayName || 'User',
+          membershipLevel: null,
+          imageUrl: null,
+          wishlist: []
         });
       }
-  
+
+      await AsyncStorage.setItem('userId', user.uid); // Lưu userId
       Alert.alert("Login Successful", `Welcome back, ${user.email}`);
-      onLogin();
-      navigation.navigate('HomeScreen');
-  
+      onlogin();
+      navigation.navigate('Home');
     } catch (error) {
-      Alert.alert("Facebook Login Failed", error.toString());
+      Alert.alert("Facebook Login Failed", error.message);
     }
   };
-  
+
   const onGoogleButtonPress = async () => {
     try {
-      // Đăng xuất khỏi bất kỳ phiên Google nào trước đó để yêu cầu người dùng chọn tài khoản
       await GoogleSignin.signOut();
-      
-      // Kiểm tra dịch vụ Google Play
       await GoogleSignin.hasPlayServices({ showPlayServicesUpdateDialog: true });
-  
-      // Đăng nhập và yêu cầu người dùng chọn tài khoản Google
+
       const { idToken } = await GoogleSignin.signIn();
-      
-      // Tạo thông tin xác thực từ token của Google
       const googleCredential = GoogleAuthProvider.credential(idToken);
-  
-      // Đăng nhập vào Firebase bằng thông tin xác thực của Google
       const userCredential = await signInWithCredential(auth, googleCredential);
       const user = userCredential.user;
-  
-      // Lấy tên từ Google
-      const name = user.displayName || "User"; // Sử dụng tên người dùng hoặc mặc định là "User"
-  
-      // Kiểm tra xem người dùng đã có trong Firestore chưa
+
       const userDoc = await getDoc(doc(db, 'users', user.uid));
-  
       if (!userDoc.exists()) {
-        // Nếu người dùng chưa tồn tại, thêm mới vào Firestore
         await setDoc(doc(db, 'users', user.uid), {
           userId: user.uid,
-          name: name,
-          membershipLevel: null,  // Mã hạng thành viên ban đầu là null
-          imageUrl: null,         // Hình ảnh ban đầu là null
+          name: user.displayName || 'User',
+          membershipLevel: null,
+          imageUrl: null,
+          wishlist: []
         });
       }
-  
+
+      await AsyncStorage.setItem('userId', user.uid); // Lưu userId
       Alert.alert("Login Successful", `Welcome back, ${user.email}`);
-      onLogin();
-      navigation.navigate('HomeScreen');
-  
+      onlogin();
+      navigation.navigate('Home');
     } catch (error) {
       Alert.alert("Google Login Failed", error.message);
     }
@@ -185,7 +157,6 @@ const SignInScreen = ({ navigation, onLogin }) => {
         </TouchableOpacity>
       </View>
 
-
       <View style={styles.signUpContainer}>
         <Text style={styles.signUpText}>Don’t have an account? </Text>
         <TouchableOpacity onPress={() => navigation.navigate('SignUp')}>
@@ -195,7 +166,6 @@ const SignInScreen = ({ navigation, onLogin }) => {
     </View>
   );
 };
-
 
 const styles = StyleSheet.create({
   container: {
@@ -290,6 +260,3 @@ const styles = StyleSheet.create({
 });
 
 export default SignInScreen;
-
-
-

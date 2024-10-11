@@ -5,6 +5,8 @@ import Header from '../components/Header';
 import { fontSize, iconSize, spacing } from '../constants/dimensions';
 import Feather from 'react-native-vector-icons/Feather';
 import { Fonts } from '../constants/fonts';
+import { useNavigation } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const menuItems = [
     { title: 'Your profile', icon: 'user' },
@@ -45,6 +47,20 @@ const ProfileScreen = ({ navigation, onLogout }) => {
             <Feather name="chevron-right" size={iconSize.md} color={Colors.Black} />
         </TouchableOpacity>
     );
+
+    const handleLogout = async () => {
+        try {
+            await AsyncStorage.removeItem('userId');
+        } catch (error) {
+            console.error('Failed to logout:', error);
+        }
+
+        if (onLogout) {
+            onLogout();
+        }
+
+        navigation.navigate('SignIn');
+    };
 
     return (
         <View style={styles.container}>
@@ -92,7 +108,7 @@ const ProfileScreen = ({ navigation, onLogout }) => {
                                 style={[styles.button, styles.buttonLogout]}
                                 onPress={() => {
                                     setLogoutModalVisible(false);
-                                    onLogout();
+                                    handleLogout();
                                 }}
                             >
                                 <Text style={styles.textStyleLogout}>Yes, Logout</Text>

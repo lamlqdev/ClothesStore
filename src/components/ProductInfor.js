@@ -4,11 +4,10 @@ import { fontSize, iconSize, spacing } from '../constants/dimensions';
 import { Fonts } from '../constants/fonts';
 import { Colors } from '../constants/colors';
 
-const ProductInfor = () => {
+const ProductInfor = ({ product }) => {
   const [expanded, setExpanded] = useState(false);
+  const { name, description, rating } = product;
   
-  const productDescription = "This light brown jacket is perfect for both casual and formal occasions. Made with high-quality materials, it offers comfort and style.";
-
   const handleToggle = () => {
     setExpanded(!expanded);
   };
@@ -16,18 +15,17 @@ const ProductInfor = () => {
   return (
     <View style={styles.container}>
       <View style={styles.styleInfoWrapper}>
-        <Text style={styles.textStyle}>Female's Style</Text>
+        <Text style={styles.textProductName}>{name}</Text>
         <View style={styles.ratingWrapper}>
           <Image source={require("../../assets/images/star.png")} resizeMethod='contain' style={styles.rating} />
-          <Text style={styles.textStyle}>4.5</Text>
+          <Text style={styles.textStyle}>{rating}</Text>
         </View>
       </View>
       
-      <Text style={styles.textProductName}>Light Brown Jacket</Text>
       <Text style={styles.textProductDetail}>Product Detail</Text>
 
       <Text style={styles.description}>
-        {expanded ? productDescription : `${productDescription.slice(0, 100)}...`}
+        {expanded ? description : `${description.slice(0, 100)}...`}
       </Text>
 
       <TouchableOpacity onPress={handleToggle} style={styles.readMoreContainer}>
@@ -54,10 +52,12 @@ const styles = StyleSheet.create({
   styleInfoWrapper: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
   },
   textStyle: {
     fontFamily: Fonts.interLight,
     fontSize: 16,
+    fontWeight: 'bold'
   },
   ratingWrapper: {
     flexDirection: 'row',
@@ -81,8 +81,8 @@ const styles = StyleSheet.create({
   },
   description: {
     fontFamily: Fonts.interLight,
-    fontSize: 14,
-    color: Colors.Gray,
+    fontSize: 17,
+    color: Colors.Black,
     marginTop: 5,
   },
   divider: {
