@@ -1,19 +1,42 @@
-import React from 'react';
-import { View, Text, FlatList, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, Image, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import Header from '../components/Header'; // Import Header
-import { useRoute } from '@react-navigation/native'; 
-
-const jacketProducts = [
-  { id: 1, name: 'Brown Jacket', price: '$83.97', rating: 4.9, image: 'https://thursdayboots.com/cdn/shop/products/1024x1024-Men-Moto-Tobacco-050322-1_1024x1024.jpg?v=1652112663' },
-  { id: 2, name: 'Brown Suite', price: '$120.00', rating: 5.0, image: 'https://brabions.com/cdn/shop/products/image_20cb4685-80d3-43fa-b180-98cc626964dd.jpg?v=1620246884' },
-  { id: 3, name: 'Brown Jacket', price: '$83.97', rating: 4.9, image: 'https://thursdayboots.com/cdn/shop/products/1024x1024-Men-Moto-Tobacco-050322-1_1024x1024.jpg?v=1652112663' },
-  { id: 4, name: 'Yellow Shirt', price: '$120.00', rating: 5.0, image: 'https://m.media-amazon.com/images/I/6155ycyBqWL._AC_UY1000_.jpg' },
-];
+import Header from '../components/Header';
+import { useRoute } from '@react-navigation/native';
+import firestore from '@react-native-firebase/firestore'; // Import Firestore
 
 function JacketScreen({ navigation }) {
-  const route = useRoute(); // Sử dụng useRoute để nhận tham số
-  const { title } = route.params; // Lấy giá trị 'title' từ tham số được truyền
+  const route = useRoute(); 
+  const { title, categoryId } = route.params; // Lấy categoryId từ params
+
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        // Truy vấn Firestore để lấy các sản phẩm có categoryId khớp
+        const snapshot = await firestore()
+          .collection('Products')
+          .where('categoryId', '==', categoryId) // Lọc theo categoryId
+          .get();
+
+        // Chuyển đổi dữ liệu từ snapshot sang array
+        const fetchedProducts = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        setProducts(fetchedProducts);
+        setLoading(false); // Tắt loading khi dữ liệu đã tải xong
+      } catch (error) {
+        console.error("Error fetching products: ", error);
+        setLoading(false);
+      }
+    };
+
+    fetchProducts();
+  }, [categoryId]); // Chỉ chạy lại khi categoryId thay đổi
 
   const renderItem = ({ item }) => (
     <View style={styles.productCard}>
@@ -34,20 +57,24 @@ function JacketScreen({ navigation }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
-      {/* Sử dụng Header component */}
+      {/* Header */}
       <Header 
         title={title} 
         onBackPress={() => navigation.goBack()} 
       />
 
-      <FlatList
-        data={jacketProducts}
-        renderItem={renderItem}
-        keyExtractor={item => item.id.toString()}
-        showsVerticalScrollIndicator={false}
-        numColumns={2}
-        contentContainerStyle={styles.productsContainer}
-      />
+      {loading ? (
+        <ActivityIndicator size="large" color="#0000ff" />
+      ) : (
+        <FlatList
+          data={products}
+          renderItem={renderItem}
+          keyExtractor={item => item.id.toString()}
+          showsVerticalScrollIndicator={false}
+          numColumns={2}
+          contentContainerStyle={styles.productsContainer}
+        />
+      )}
     </View>
   );
 }

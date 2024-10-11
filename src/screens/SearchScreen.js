@@ -3,18 +3,24 @@ import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet } from 
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Header from '../components/Header';
 
+
 const SearchScreen = ({ navigation }) => {
   const [searchText, setSearchText] = useState('');
-  const [recentSearches, setRecentSearches] = useState([
-    'Blue Shirt',
-    'CosmicChic Jacket',
-    'EnchantedElegance Dress',
-    'WhimsyWhirl Top',
-    'Fluffernova Coat',
-    'MirageMelody Cape',
-    'BlossomBreeze Overalls',
-    'EnchantedElegance Dress',
-  ]);
+  const [recentSearches, setRecentSearches] = useState([]);
+
+  const handleSearch = async () => {
+    if (searchText.trim()) {
+      // Điều hướng đến trang kết quả tìm kiếm với từ khóa tìm kiếm
+      navigation.navigate('SearchResults', { searchQuery: searchText }); 
+  
+      // Cập nhật lịch sử tìm kiếm
+      if (!recentSearches.includes(searchText)) {
+        setRecentSearches([searchText, ...recentSearches]); // Thêm vào đầu danh sách
+      }
+      setSearchText(''); // Xóa ô input sau khi tìm kiếm
+    }
+  };
+  
 
   const handleRemoveItem = (item) => {
     setRecentSearches(recentSearches.filter((search) => search !== item));
@@ -22,10 +28,6 @@ const SearchScreen = ({ navigation }) => {
 
   const clearAll = () => {
     setRecentSearches([]);
-  };
-
-  const handleSearch = () => {
-    navigation.navigate('SearchResults', { query: searchText });
   };
 
   return (
@@ -41,24 +43,18 @@ const SearchScreen = ({ navigation }) => {
             placeholderTextColor="#A9A9A9"
             value={searchText}
             onChangeText={setSearchText}
+            onSubmitEditing={handleSearch} // Tìm kiếm khi nhấn Enter
           />
           <TouchableOpacity onPress={handleSearch}>
             <Text style={styles.searchButton}>Search</Text>
           </TouchableOpacity>
         </View>
-
-        <TouchableOpacity 
-          style={styles.filterIconContainer} 
-          onPress={() => navigation.navigate('Filter')}
-        >
-          <Icon name="sliders" size={24} color="brown" />
-        </TouchableOpacity>
       </View>
 
-      {/* Recent Searches */}
+      {/* Recent Searches */} 
       <View style={styles.recentContainer}>
         <View style={styles.recentHeader}>
-          <Text style={styles.recentTitle}>Recent</Text>
+          <Text style={styles.recentTitle}>Recent Searches</Text>
           <TouchableOpacity onPress={clearAll}>
             <Text style={styles.clearText}>Clear All</Text>
           </TouchableOpacity>
@@ -67,7 +63,9 @@ const SearchScreen = ({ navigation }) => {
         <ScrollView>
           {recentSearches.map((item, index) => (
             <View key={index} style={styles.recentItem}>
-              <Text style={styles.itemText}>{item}</Text>
+              <TouchableOpacity onPress={() => setSearchText(item)}>
+                <Text style={styles.itemText}>{item}</Text>
+              </TouchableOpacity>
               <TouchableOpacity onPress={() => handleRemoveItem(item)}>
                 <Icon name="times-circle" size={20} color="#A9A9A9" />
               </TouchableOpacity>
@@ -108,10 +106,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginLeft: 10,
   },
-  filterIconContainer: {
-    marginLeft: 10, // Khoảng cách giữa thanh tìm kiếm và biểu tượng slider
-    justifyContent: 'center',
-  },
   recentContainer: {
     marginHorizontal: 16,
   },
@@ -142,3 +136,4 @@ const styles = StyleSheet.create({
 });
 
 export default SearchScreen;
+

@@ -94,14 +94,20 @@ function HomeScreen({ navigation }) {
               key={category.id}
               style={styles.category}
               onPress={() => {
-                navigation.navigate('Category', { title: category.name });
-              }}>
+                // Truyền cả title và categoryId khi điều hướng sang màn hình tiếp theo
+                navigation.navigate('Category', { 
+                  title: category.name, 
+                  categoryId: category.categoryId  // Truyền categoryId
+                });
+              }}
+            >
               <FontAwesome5 name={category.icon} size={24} color="brown" />
               <Text style={styles.categoryText}>{category.name}</Text>
             </TouchableOpacity>
           ))}
         </View>
       </View>
+
 
       <View style={styles.flashSaleContainer}>
         <View style={styles.flashSaleHeader}>
