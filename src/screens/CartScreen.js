@@ -1,206 +1,276 @@
-import React, { useState } from 'react';
-import { View, Text, StatusBar, FlatList, Image, TouchableOpacity, TextInput, StyleSheet, Modal } from 'react-native';
-import { Colors } from '../constants/colors';
-import { useNavigation } from '@react-navigation/native';
-import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
+import React, { useEffect, useState } from 'react';
+import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet, Modal, Image, TextInput } from 'react-native';
+import firestore from '@react-native-firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
+import CheckBox from '@react-native-community/checkbox';
+import { Colors } from '../constants/colors';
+import { Fonts } from '../constants/fonts';
+import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 
-const cartItems = [
-  {
-    id: '1',
-    name: 'Brown Jacket',
-    size: 'XL',
-    price: 83.97,
-    image: { uri: 'https://thursdayboots.com/cdn/shop/products/1024x1024-Men-Moto-Tobacco-050322-1_1024x1024.jpg?v=1652112663' },
-    quantity: 1,
-  },
-  {
-    id: '2',
-    name: 'Brown Suite',
-    size: 'XL',
-    price: 120,
-    image: { uri: 'https://brabions.com/cdn/shop/products/image_20cb4685-80d3-43fa-b180-98cc626964dd.jpg?v=1620246884' },
-    quantity: 1,
-  },
-  {
-    id: '3',
-    name: 'Yellow Shirt',
-    size: 'XL',
-    price: 60,
-    image: { uri: 'https://m.media-amazon.com/images/I/6155ycyBqWL._AC_UY1000_.jpg' },
-    quantity: 1,
-  },
-  {
-    id: '4',
-    name: 'Red Dress',
-    size: 'L',
-    price: 500,
-    image: { uri: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSf05jWbUmZSFcnHa2oJVV39tUvN-iJMpfyZw&s' },
-    quantity: 1,
-  }
-];
-
-const CartScreen = () => {
-  const [items, setItems] = useState(cartItems);
-  const [promoCode, setPromoCode] = useState('');
-  const [showPromo, setShowPromo] = useState(false);
+const CartScreen = ({ navigation }) => {
+  const [cartItems, setCartItems] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
+  const [selectedItems, setSelectedItems] = useState([]);
+  const [selectAll, setSelectAll] = useState(false);
   const [showRemoveModal, setShowRemoveModal] = useState(false);
   const [itemToRemove, setItemToRemove] = useState(null);
-  const [removeQuantity, setRemoveQuantity] = useState(1);
-  const [selectedItem, setSelectedItem] = useState(null);
-  const navigation = useNavigation();
 
-  const handleItemPress = (item) => {
-    setSelectedItem(item);
-    setShowPromo(true);
-  };
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const id = await AsyncStorage.getItem('userId');
+      setUserId(id);
+    };
 
-  const handleRemoveItem = (item) => {
-    setItemToRemove(item);
-    setRemoveQuantity(item.quantity);
-    setShowRemoveModal(true);
-  };
+    const unsubscribe = firestore()
+      .collection('Cart')
+      .where('userId', '==', userId)
+      .onSnapshot(snapshot => {
+        if (snapshot.empty) {
+          console.log("No items in the cart");
+          setLoading(false);
+          return;
+        }
+        const cartData = snapshot.docs.map(async (doc) => {
+          const cartItem = doc.data();
+          const productDoc = await firestore()
+            .collection('Products')
+            .doc(cartItem.productId)
+            .get();
+          const productData = productDoc.exists ? productDoc.data() : null;
 
-  const confirmRemoveItem = () => {
-    if (removeQuantity >= itemToRemove.quantity) {
-      setItems(items.filter(i => i.id !== itemToRemove.id));
+          const productTypeDocs = await firestore()
+            .collection('ProductType')
+            .where('productId', '==', cartItem.productId)
+            .get();
+
+          const productTypeData = productTypeDocs.docs.find(typeDoc => {
+            const sizes = typeDoc.data().size;
+            return sizes && sizes.includes(cartItem.size);
+          });
+
+          if (!productTypeData || !productData) {
+            console.warn('No product or product type found:', cartItem.productId, cartItem.size);
+            return null;
+          }
+
+          const productTypeInfo = productTypeData.data();
+
+          return {
+            cartId: doc.id,
+            product: productData,
+            size: cartItem.size,
+            quantity: cartItem.quantity,
+            stock: productTypeInfo.quantity,
+            price: productData.price,
+          };
+        });
+
+        Promise.all(cartData).then(items => {
+          setCartItems(items.filter(item => item !== null));
+          setLoading(false);
+        }).catch(error => {
+          console.error('Error loading cart items: ', error);
+          setLoading(false);
+        });
+      }, (error) => {
+        console.error("Error in onSnapshot: ", error);
+        setLoading(false);
+      });
+
+    fetchUserId();
+
+    return () => unsubscribe(); // Hủy đăng ký khi component unmount
+  }, [userId]);
+
+  const handleQuantityChange = (cartId, newQuantity, stock) => {
+    if (newQuantity < 1 || newQuantity > stock) {
+      Alert.alert('Invalid quantity. Please enter a valid number.');
     } else {
-      setItems(items.map(i => i.id === itemToRemove.id ? { ...i, quantity: i.quantity - removeQuantity } : i));
+      firestore()
+        .collection('Cart')
+        .doc(cartId)
+        .update({ quantity: newQuantity })
+        .then(() => {
+          setCartItems((prevItems) =>
+            prevItems.map((item) =>
+              item.cartId === cartId ? { ...item, quantity: newQuantity } : item
+            )
+          );
+          // Reset selected items and total when quantity changes
+          setSelectedItems([]);
+          setSelectAll(false);
+        })
+        .catch((error) => console.error('Error updating cart quantity:', error));
     }
-    setShowRemoveModal(false);
+  };
+
+  const handleInputChange = (item, value) => {
+    const newQuantity = parseInt(value);
+    if (!isNaN(newQuantity)) {
+      handleQuantityChange(item.cartId, newQuantity, item.stock);
+    }
   };
 
   const handleIncreaseQuantity = (item) => {
-    setItems(items.map(i => i.id === item.id ? { ...i, quantity: i.quantity + 1 } : i));
+    handleQuantityChange(item.cartId, item.quantity + 1, item.stock);
   };
 
   const handleDecreaseQuantity = (item) => {
     if (item.quantity > 1) {
-      setItems(items.map(i => i.id === item.id ? { ...i, quantity: i.quantity - 1 } : i));
+      handleQuantityChange(item.cartId, item.quantity - 1, item.stock);
     }
+  };
+
+  const handleRemoveItem = (item) => {
+    setItemToRemove(item);
+    setShowRemoveModal(true);
+  };
+
+  const confirmRemoveItem = async () => {
+    try {
+      await firestore()
+        .collection('Cart')
+        .doc(itemToRemove.cartId)
+        .delete();
+      setCartItems(cartItems.filter(i => i.cartId !== itemToRemove.cartId));
+
+      // Cập nhật cartlist trong users
+      await firestore()
+        .collection('users')
+        .doc(userId)
+        .update({
+          cartlist: firestore.FieldValue.arrayRemove(itemToRemove.cartId),
+        });
+
+      setShowRemoveModal(false);
+    } catch (error) {
+      console.error('Error removing item:', error);
+    }
+  };
+
+  const handleCheckout = () => {
+    if (selectedItems.length > 0) {
+      navigation.navigate('Checkout', { selectedProducts: selectedItems });
+    } else {
+      Alert.alert('Please select products to checkout.');
+    }
+  };
+
+  const toggleSelectItem = (item) => {
+    if (selectedItems.includes(item)) {
+      setSelectedItems(selectedItems.filter(i => i !== item));
+    } else {
+      setSelectedItems([...selectedItems, item]);
+    }
+  };
+
+  const toggleSelectAll = () => {
+    if (selectAll) {
+      setSelectedItems([]);
+    } else {
+      setSelectedItems([...cartItems]);
+    }
+    setSelectAll(!selectAll);
+  };
+
+  const calculateTotal = () => {
+    return selectedItems.reduce((total, item) => total + item.price * item.quantity, 0).toFixed(2);
   };
 
   const renderCartItem = ({ item }) => (
     <Swipeable
       renderRightActions={() => (
-        <TouchableOpacity
-          onPress={() => handleRemoveItem(item)}
-          style={styles.trashContainer}
-        >
+        <TouchableOpacity onPress={() => handleRemoveItem(item)} style={styles.trashContainer}>
           <Text style={styles.trashIcon}>🗑</Text>
         </TouchableOpacity>
       )}
     >
       <View style={styles.cartItem}>
-        <TouchableOpacity onPress={() => handleItemPress(item)} style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}>
-          <Image source={item.image} style={styles.itemImage} />
-          
-          <View style={styles.itemDetails}>
-            <Text style={styles.itemName}>{item.name}</Text>
-            <Text style={styles.itemSize}>Size: {item.size}</Text>
-            <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
+        <View style={styles.leftContainer}>
+          <CheckBox
+            value={selectedItems.includes(item)}
+            onValueChange={() => toggleSelectItem(item)}
+            tintColors={{ true: Colors.Brown, false: '#ccc' }}
+          />
+          <Image source={{ uri: item.product.image }} style={styles.itemImage} />
+        </View>
+        <View style={styles.itemDetails}>
+          <Text style={styles.productName}>{item.product.name}</Text>
+          <Text style={styles.sizeText}>Size: {item.size}</Text>
+          <Text style={styles.priceText}>Price: ${item.price}</Text>
+          <View style={styles.quantityControl}>
+            <TouchableOpacity onPress={() => handleDecreaseQuantity(item)} style={styles.quantityButton}>
+              <Text style={styles.quantityText}>-</Text>
+            </TouchableOpacity>
+            <TextInput
+              style={styles.quantityInput}
+              keyboardType="numeric"
+              value={item.quantity.toString()}
+              onChangeText={(value) => handleInputChange(item, value)}
+            />
+            <TouchableOpacity onPress={() => handleIncreaseQuantity(item)} style={styles.quantityButton}>
+              <Text style={styles.quantityText}>+</Text>
+            </TouchableOpacity>
           </View>
-        </TouchableOpacity>
-        
-        <View style={styles.quantityControl}>
-          <TouchableOpacity onPress={() => handleDecreaseQuantity(item)} style={styles.quantityButton}>
-            <Text style={styles.quantityText}>-</Text>
-          </TouchableOpacity>
-          <Text style={styles.quantityNumber}>{item.quantity}</Text>
-          <TouchableOpacity onPress={() => handleIncreaseQuantity(item)} style={styles.quantityButton}>
-            <Text style={styles.quantityText}>+</Text>
-          </TouchableOpacity>
         </View>
       </View>
     </Swipeable>
-  );  
+  );
 
-  const calculateTotal = () => {
-    const subTotal = items.reduce((sum, item) => sum + item.price * item.quantity, 0);
-    const discount = 35;
-    const deliveryFee = 25;
-    const total = subTotal + deliveryFee - discount;
-    return { subTotal, discount, deliveryFee, total };
-  };
-
-  const { subTotal, discount, deliveryFee, total } = calculateTotal();
+  if (loading) {
+    return <Text>Loading...</Text>;
+  }
 
   return (
-    <GestureHandlerRootView style={{ flex: 1, paddingBottom: 80 }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
       <View style={styles.container}>
-        <Header title="My Cart" onBackPress={() => navigation.goBack()} />
+        <Header title="My Cart" />
+
+        {/* Chọn tất cả sản phẩm */}
+        <View style={styles.selectAllContainer}>
+          <CheckBox
+            value={selectAll}
+            onValueChange={toggleSelectAll}
+            tintColors={{ true: Colors.Brown, false: '#ccc' }}
+          />
+          <Text style={styles.selectAllText}>Select All</Text>
+        </View>
+
         <FlatList
-          data={items}
+          data={cartItems}
+          keyExtractor={(item) => item.cartId}
           renderItem={renderCartItem}
-          keyExtractor={(item) => item.id}
-          contentContainerStyle={styles.listContent}
+          contentContainerStyle={styles.flatListContent}
         />
 
-        {selectedItem && (
-          <>
-            <View style={styles.promoContainer}>
-              <TextInput
-                style={styles.promoInput}
-                placeholder="Promo Code"
-                value={promoCode}
-                onChangeText={setPromoCode}
-              />
-              <TouchableOpacity style={styles.applyButton}>
-                <Text style={styles.applyText}>Apply</Text>
-              </TouchableOpacity>
+        {/* Phần summary và nút Checkout */}
+        <View style={styles.footer}>
+          <View style={styles.summaryContainer}>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalText}>Total:</Text>
+              <Text style={styles.totalText}>${calculateTotal()}</Text>
             </View>
-
-            <View style={styles.summaryContainer}>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryText}>Sub-Total</Text>
-                <Text style={styles.summaryText}>${subTotal.toFixed(2)}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryText}>Delivery Fee</Text>
-                <Text style={styles.summaryText}>${deliveryFee.toFixed(2)}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryText}>Discount</Text>
-                <Text style={styles.summaryText}>-${discount.toFixed(2)}</Text>
-              </View>
-              <View style={styles.summaryRow}>
-                <Text style={styles.totalText}>Total Cost</Text>
-                <Text style={styles.totalText}>${total.toFixed(2)}</Text>
-              </View>
-            </View>
-
-            <TouchableOpacity
-              style={styles.checkoutButton}
-              onPress={() => navigation.navigate('Checkout')}
-            >
+            <TouchableOpacity style={styles.checkoutButton} onPress={handleCheckout}>
               <Text style={styles.checkoutText}>Proceed to Checkout</Text>
             </TouchableOpacity>
-          </>
-        )}
+          </View>
+        </View>
 
+        {/* Modal xóa sản phẩm */}
         <Modal visible={showRemoveModal} transparent={true} animationType="slide">
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Remove from Cart?</Text>
               <View style={styles.modalItemDetails}>
-                <Image source={itemToRemove?.image} style={styles.modalItemImage} />
+                <Image source={{ uri: itemToRemove?.product?.image }} style={styles.modalItemImage} />
                 <View>
-                  <Text style={styles.itemName}>{itemToRemove?.name}</Text>
-                  <Text>{itemToRemove?.size}</Text>
+                  <Text style={styles.itemName}>{itemToRemove?.product?.name}</Text>
+                  <Text>Size: {itemToRemove?.size}</Text>
                   <Text style={styles.itemName}>${itemToRemove?.price}</Text>
                 </View>
               </View>
-
-              <View style={styles.quantityControl}>
-                <TouchableOpacity onPress={() => setRemoveQuantity(removeQuantity > 1 ? removeQuantity - 1 : 1)} style={styles.quantityButton}>
-                  <Text style={styles.quantityText}>-</Text>
-                </TouchableOpacity>
-                <Text style={styles.quantityNumber}>{removeQuantity}</Text>
-                <TouchableOpacity onPress={() => setRemoveQuantity(removeQuantity + 1)} style={styles.quantityButton}>
-                  <Text style={styles.quantityText}>+</Text>
-                </TouchableOpacity>
-              </View>
-
               <View style={styles.modalButtons}>
                 <TouchableOpacity onPress={() => setShowRemoveModal(false)} style={styles.modalCancelButton}>
                   <Text style={styles.modalButtonText}>Cancel</Text>
@@ -225,37 +295,56 @@ const styles = StyleSheet.create({
   cartItem: {
     flexDirection: 'row',
     padding: 16,
-    borderBottomWidth: 1,
-    borderColor: '#e0e0e0',
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    marginTop: 16,
     alignItems: 'center',
     justifyContent: 'space-between',
+    borderTopWidth: 1,
+    borderColor: '#ddd'
+  },
+  leftContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
   itemImage: {
     width: 80,
     height: 80,
     borderRadius: 10,
+    marginLeft: 10,
   },
   itemDetails: {
     flex: 1,
     marginLeft: 16,
-    justifyContent: 'center'
   },
-  itemName: {
+  productName: {
+    fontFamily: Fonts.interBold,
     fontSize: 16,
-    fontWeight: 'bold',
+    marginBottom: 8,
+    color: 'black'
   },
-  itemSize: {
-    fontSize: 15,
-    color: '#888',
+  sizeText: {
+    fontFamily: Fonts.interRegular,
+    marginBottom: 4,
+    color: 'black'
   },
-  itemPrice: {
-    fontSize: 16,
-    marginTop: 8,
-    fontWeight: 'bold',
+  priceText: {
+    fontFamily: Fonts.interRegular,
+    marginBottom: 4,
+    color: 'black'
+  },
+  quantityInput: {
+    borderWidth: 1,
+    borderColor: Colors.Gray,
+    borderRadius: 5,
+    padding: 8,
+    width: 40,
+    textAlign: 'center',
+    color: 'black'
   },
   quantityControl: {
     flexDirection: 'row',
-    alignItems: 'center'
+    alignItems: 'center',
   },
   quantityButton: {
     paddingVertical: 12,
@@ -270,49 +359,45 @@ const styles = StyleSheet.create({
   quantityNumber: {
     marginHorizontal: 12,
     fontSize: 18,
+    color: 'black'
   },
-  promoContainer: {
+  selectAllContainer: {
     flexDirection: 'row',
-    padding: 16,
+    alignItems: 'center',
+    marginVertical: 10,
+    paddingHorizontal: 16,
   },
-  promoInput: {
-    flex: 1,
-    borderColor: '#ddd',
-    borderWidth: 1,
-    padding: 8,
-    borderRadius: 5,
-  },
-  applyButton: {
+  selectAllText: {
+    fontFamily: Fonts.interBold,
+    fontSize: 16,
     marginLeft: 8,
-    padding: 10,
-    backgroundColor: Colors.Brown,
-    borderRadius: 5,
   },
-  applyText: {
-    color: '#fff',
+  flatListContent: {
+    paddingBottom: 150,
   },
-  summaryContainer: {
-    padding: 16,
+  footer: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    backgroundColor: '#fff',
+    paddingHorizontal: 16,
+    paddingBottom: 80,
     borderTopWidth: 1,
     borderColor: '#ddd',
   },
-  summaryRow: {
+  totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
-  },
-  summaryText: {
-    fontSize: 16,
+    marginBottom: 16,
   },
   totalText: {
+    fontFamily: Fonts.interBold,
     fontSize: 18,
-    fontWeight: 'bold',
   },
   checkoutButton: {
-    margin: 16,
     padding: 16,
     backgroundColor: Colors.Brown,
-    borderRadius: 5,
+    borderRadius: 30,
     alignItems: 'center',
   },
   checkoutText: {
@@ -325,10 +410,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     width: 64,
-  },
-  trashIcon: {
-    color: '#fff',
-    fontSize: 20,
   },
   modalContainer: {
     flex: 1,

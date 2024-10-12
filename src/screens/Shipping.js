@@ -6,7 +6,7 @@ import Icon2 from 'react-native-vector-icons/Ionicons';
 import Icon3 from 'react-native-vector-icons/FontAwesome';
 import Header from '../components/Header';
 
-const AddressItem = ({ type, address, isSelected, onSelect }: { type: string; address: string; isSelected: boolean; onSelect: () => void }) => (
+const AddressItem = ({ type, address, isSelected, onSelect }) => (
   <TouchableOpacity style={styles.addressItem} onPress={onSelect}>
     <View style={styles.addressInfo}>
       <Icon name="location-on" size={24} color="brown" />
@@ -25,13 +25,13 @@ const AddressItem = ({ type, address, isSelected, onSelect }: { type: string; ad
   </TouchableOpacity>
 );
 
-const Button = ({ title, onPress }: { title: string; onPress: () => void }) => (
+const Button = ({ title, onPress }) => (
   <TouchableOpacity style={styles.button} onPress={onPress}>
     <Text style={styles.buttonText}>{title}</Text>
   </TouchableOpacity>
 );
 
-const ShippingAddressScreen = ({ navigation }: { navigation: any }) => {
+const ShippingAddressScreen = ({ navigation }) => {
   const addresses = [
     { type: 'Home', address: '1901 Thornridge Cir. Shiloh, Hawaii 81063' },
     { type: 'Office', address: '4517 Washington Ave. Manchester 39495' },
@@ -41,7 +41,7 @@ const ShippingAddressScreen = ({ navigation }: { navigation: any }) => {
 
   const [selectedAddress, setSelectedAddress] = useState(0);
 
-  const handleAddressSelect = (index: number) => {
+  const handleAddressSelect = (index) => {
     setSelectedAddress(index);
   };
 
@@ -69,17 +69,17 @@ const ShippingAddressScreen = ({ navigation }: { navigation: any }) => {
   );
 };
 
-const ChooseShippingScreen = ({ navigation }: { navigation: any }) => {
+const ChooseShippingScreen = ({ navigation }) => {
   const shippingOptions = [
-    { type: 'Economy', date: '25 Septemper 2024', icon: <Icon name="shopping-bag" size={24} color="brown" /> },
-    { type: 'Regular', date: '24 Septemper 2024', icon: <Icon name="shopping-bag" size={24} color="brown" /> },
-    { type: 'Cargo', date: '22 Septemper 2024', icon: <Icon3 name="truck" size={24} color="brown" /> },
+    { type: 'Economy', date: '25 September 2024', icon: <Icon name="shopping-bag" size={24} color="brown" /> },
+    { type: 'Regular', date: '24 September 2024', icon: <Icon name="shopping-bag" size={24} color="brown" /> },
+    { type: 'Cargo', date: '22 September 2024', icon: <Icon3 name="truck" size={24} color="brown" /> },
     { type: "Friend's House", address: '2464 Royal Ln. Mesa, New Jersey 45463', icon: <Icon3 name="truck" size={24} color="brown" /> },
   ];
 
   const [selectedOption, setSelectedOption] = useState(0);
 
-  const handleOptionPress = (index: number) => {
+  const handleOptionPress = (index) => {
     setSelectedOption(index);
   };
 
@@ -142,17 +142,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginLeft: 16,
-  },
-  radioButton: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    borderWidth: 2,
-    borderColor: '#999',
-  },
-  radioButtonSelected: {
-    borderColor: '#8B4513',
-    backgroundColor: '#8B4513',
   },
   addAddress: {
     flexDirection: 'row',

@@ -1,52 +1,24 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, FlatList, Image, StyleSheet } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Header from '../components/Header';
 
-const orderItems = [
-    {
-        id: '1',
-        name: 'Brown Jacket',
-        size: 'XL',
-        price: 83.97,
-        image: { uri: 'https://thursdayboots.com/cdn/shop/products/1024x1024-Men-Moto-Tobacco-050322-1_1024x1024.jpg?v=1652112663' },
-    },
-    {
-        id: '2',
-        name: 'Brown Suite',
-        size: 'XL',
-        price: 120,
-        image: { uri: 'https://brabions.com/cdn/shop/products/image_20cb4685-80d3-43fa-b180-98cc626964dd.jpg?v=1620246884' },
-    },
-    {
-        id: '3',
-        name: 'Yellow Shirt',
-        size: 'XL',
-        price: 60,
-        image: { uri: 'https://m.media-amazon.com/images/I/6155ycyBqWL._AC_UY1000_.jpg' },
-        quantity: 1,
-    },
-    {
-        id: '4',
-        name: 'Red Dress',
-        size: 'L',
-        price: 500,
-        image: { uri: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSf05jWbUmZSFcnHa2oJVV39tUvN-iJMpfyZw&s' },
-        quantity: 1,
-    }
-];
-
 const CheckoutScreen = () => {
     const navigation = useNavigation();
+    const route = useRoute();
+    
+    // Nhận danh sách sản phẩm được chọn từ CartScreen
+    const { selectedProducts } = route.params;
 
     const renderOrderItem = ({ item }) => (
         <View style={styles.orderItem}>
-            <Image source={item.image} style={styles.itemImage} />
+            <Image source={{ uri: item.product.image }} style={styles.itemImage} />
             <View style={styles.itemDetails}>
-                <Text style={styles.itemName}>{item.name}</Text>
+                <Text style={styles.itemName}>{item.product.name}</Text>
                 <Text style={styles.itemSize}>Size: {item.size}</Text>
-                <Text style={styles.itemPrice}>${item.price.toFixed(2)}</Text>
+                <Text style={styles.itemQuantity}>Quantity: {item.quantity}</Text>
+                <Text style={styles.itemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
             </View>
         </View>
     );
@@ -86,9 +58,9 @@ const CheckoutScreen = () => {
             <Text style={styles.orderListTitle}>Order List</Text>
 
             <FlatList
-                data={orderItems}
+                data={selectedProducts}
                 renderItem={renderOrderItem}
-                keyExtractor={(item) => item.id}
+                keyExtractor={(item) => item.cartId}
                 contentContainerStyle={styles.listContent}
             />
 
@@ -176,6 +148,10 @@ const styles = StyleSheet.create({
         fontSize: 16,
         marginTop: 8,
         fontWeight: 'bold',
+    },
+    itemQuantity: {
+        fontSize: 15,
+        color: '#888',
     },
     paymentButton: {
         position: 'absolute',

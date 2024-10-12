@@ -59,7 +59,8 @@ const SignInScreen = ({ navigation, onlogin }) => {
           name: user.displayName || 'User',
           membershipLevel: null,
           imageUrl: null,
-          wishlist: []
+          wishlist: [],
+          cartlist: []
         });
       }
 
@@ -89,7 +90,8 @@ const SignInScreen = ({ navigation, onlogin }) => {
           name: user.displayName || 'User',
           membershipLevel: null,
           imageUrl: null,
-          wishlist: []
+          wishlist: [],
+          cartlist: []
         });
       }
 

@@ -4,7 +4,7 @@ import { Colors } from '../constants/colors';
 import Slider from '../components/Slider';
 import ProductInfor from '../components/ProductInfor';
 import SelectSize from '../components/SizeSelector';
-import AddToCartButton from '../components/AddToCard';
+import AddToCartButton from '../components/AddToCart';
 import firestore from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -13,6 +13,7 @@ const ProductDetail = ({ route, navigation }) => {
   const [userId, setUserId] = useState(null);
   const [product, setProduct] = useState(null);
   const [wishlist, setWishlist] = useState([]);
+  const [selectedSize, setSelectedSize] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -98,8 +99,8 @@ const ProductDetail = ({ route, navigation }) => {
             toggleWishlist={toggleWishlist}
           />
           <ProductInfor product={product} />
-          <SelectSize productId={productId} />
-          <AddToCartButton productId={productId} />
+          <SelectSize productId={productId} onSelectSize={setSelectedSize} />
+          <AddToCartButton productId={productId} selectedSize={selectedSize} />
         </>
       )}
     </View>

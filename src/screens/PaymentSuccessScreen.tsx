@@ -23,10 +23,6 @@ const PaymentSuccessScreen = () => {
             <TouchableOpacity style={styles.viewOrderButton} onPress={() => navigation.navigate('MyOrders')} >
                 <Text style={styles.buttonText}>View Order</Text>
             </TouchableOpacity>
-
-            <TouchableOpacity style={styles.viewReceiptButton}>
-                <Text style={styles.viewReceiptText}>View E-Receipt</Text>
-            </TouchableOpacity>
         </View>
     );
 };
@@ -74,14 +70,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 20,
         fontWeight: 'bold',
-    },
-    viewReceiptButton: {
-        alignItems: 'center',
-        padding: 10,
-    },
-    viewReceiptText: {
-        color: 'brown',
-        fontSize: 20,
     },
 });
 

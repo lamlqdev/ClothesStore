@@ -5,7 +5,7 @@ import { fontSize } from '../constants/dimensions';
 import { Fonts } from '../constants/fonts';
 import { Colors } from '../constants/colors';
 
-const SelectSize = ({ productId }) => {
+const SelectSize = ({ productId, onSelectSize }) => {
   const [selectedSize, setSelectedSize] = useState(null);
   const [sizes, setSizes] = useState([]);
 
@@ -16,7 +16,7 @@ const SelectSize = ({ productId }) => {
           .collection('ProductType')
           .where('productId', '==', productId)
           .get();
-
+    
         if (!sizeSnapshot.empty) {
           const sizesData = sizeSnapshot.docs.flatMap(doc => {
             const sizeArray = doc.data().size;
@@ -32,13 +32,14 @@ const SelectSize = ({ productId }) => {
       } catch (error) {
         console.error('Error fetching sizes:', error);
       }
-    };
+    };    
 
     fetchSizes();
   }, [productId]);
 
   const handleSelectSize = (size) => {
     setSelectedSize(size);
+    onSelectSize(size); // Gọi hàm onSelectSize để thông báo size đã chọn
   };
 
   return (
