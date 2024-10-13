@@ -3,70 +3,93 @@ import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, TextInput, A
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Header from '../components/Header';
 import searchClient from '../algoliaConfig';  // Cấu hình Algolia Client
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import firestore from '@react-native-firebase/firestore';
+
 
 const SearchResultsScreen = ({ route, navigation }) => {
   const {
     searchQuery,
     selectedGender = 'All',
-    selectedRating = 'All',
+    selectedRating = null,
     minPrice = 0,
     maxPrice = 10000000,
-    sortingOption = 'latest', // Giá trị mặc định cho sắp xếp
+    sortingOption = 'latest',
   } = route.params || {};
 
   const [products, setProducts] = useState([]);
+  const [wishlist, setWishlist] = useState([]); // Chuyển từ object sang array để dễ xử lý
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(null); // Lưu trữ userId
 
+  // Lấy userId từ AsyncStorage
+  useEffect(() => {
+    const getUserId = async () => {
+      const id = await AsyncStorage.getItem('userId');
+      setUserId(id);
+    };
+    getUserId();
+  }, []);
+
+  // Lấy danh sách yêu thích từ Firestore
+  useEffect(() => {
+    if (userId) {
+      const fetchWishlist = async () => {
+        try {
+          const userRef = firestore().collection('users').doc(userId);
+          const userDoc = await userRef.get();
+          const currentWishlist = userDoc.exists && userDoc.data().wishlist ? userDoc.data().wishlist : [];
+          setWishlist(currentWishlist); // Lưu danh sách yêu thích vào state
+        } catch (error) {
+          console.error("Error fetching wishlist: ", error);
+        }
+      };
+      fetchWishlist();
+    }
+  }, [userId]);
+
+  // Tìm kiếm sản phẩm qua Algolia
   useEffect(() => {
     const searchProducts = async () => {
       setLoading(true);
       try {
-        // Tạo index Algolia
-        let index = searchClient.initIndex('Products'); // Index chính
+        let index = searchClient.initIndex('Products');
 
-        // Áp dụng sắp xếp theo sortingOption
         switch (sortingOption) {
           case 'sales':
-            index = searchClient.initIndex('Products_sales_desc'); // Replica: sắp xếp theo lượt bán giảm dần
+            index = searchClient.initIndex('Products_sales_desc');
             break;
           case 'priceLowToHigh':
-            index = searchClient.initIndex('Products_price_asc'); // Replica: sắp xếp giá từ thấp đến cao
+            index = searchClient.initIndex('Products_price_asc');
             break;
           case 'priceHighToLow':
-            index = searchClient.initIndex('Products_price_desc'); // Replica: sắp xếp giá từ cao đến thấp
+            index = searchClient.initIndex('Products_price_desc');
             break;
           case 'latest':
           default:
-            index = searchClient.initIndex('Products_createdAt_desc'); // Replica: sắp xếp theo thời gian mới nhất
+            index = searchClient.initIndex('Products_createdAt_desc');
             break;
         }
 
-        // Bộ lọc giới tính
         const genderFilter = selectedGender !== 'All' ? `gender:${selectedGender}` : '';
 
-        // Bộ lọc đánh giá
         let ratingFilter = '';
-        if (selectedRating !== 'All') {
+        if (selectedRating !== null) {
           const ratingParts = selectedRating.split(' ');
           const ratingMin = parseFloat(ratingParts[0]);
-          ratingFilter = `rating >= ${ratingMin}`;
+          const ratingMax = ratingMin === 4.0 ? ratingMin + 0.5 : ratingMin + 1;
+          ratingFilter = `rating >= ${ratingMin} AND rating <= ${ratingMax}`;
         }
 
-        // Bộ lọc giá
         let priceFilter = '';
         if (minPrice !== null && maxPrice !== null) {
           priceFilter = `price >= ${minPrice} AND price <= ${maxPrice}`;
         }
 
-        // Tổng hợp các bộ lọc
         const filters = [genderFilter, ratingFilter, priceFilter].filter(Boolean).join(' AND ');
 
-        // Thực hiện tìm kiếm với từ khóa và các bộ lọc
-        const searchResponse = await index.search(searchQuery, {
-          filters, // Áp dụng bộ lọc
-        });
-
-        setProducts(searchResponse.hits); // Cập nhật danh sách sản phẩm đã lọc
+        const searchResponse = await index.search(searchQuery, { filters });
+        setProducts(searchResponse.hits);
       } catch (error) {
         console.error('Error searching products: ', error);
       } finally {
@@ -76,6 +99,38 @@ const SearchResultsScreen = ({ route, navigation }) => {
 
     searchProducts();
   }, [searchQuery, selectedGender, selectedRating, minPrice, maxPrice, sortingOption]);
+
+  // Hàm thêm/xóa sản phẩm khỏi danh sách yêu thích
+  const toggleWishlist = async (productId) => {
+    if (!userId) {
+      console.error("User ID not found!");
+      return;
+    }
+
+    const userRef = firestore().collection('users').doc(userId);
+    try {
+      const userDoc = await userRef.get();
+      const currentWishlist = Array.isArray(userDoc.data().wishlist) ? userDoc.data().wishlist : [];
+
+      let updatedWishlist;
+      if (currentWishlist.includes(productId)) {
+        updatedWishlist = currentWishlist.filter(id => id !== productId);
+      } else {
+        updatedWishlist = [...currentWishlist, productId];
+      }
+
+      await userRef.update({ wishlist: updatedWishlist });
+
+      setWishlist(updatedWishlist);
+    } catch (error) {
+      console.error("Error updating wishlist: ", error);
+    }
+  };
+
+  // Kiểm tra xem sản phẩm có trong danh sách yêu thích không
+  const isInWishlist = (productId) => {
+    return wishlist.includes(productId);
+  };
 
   return (
     <View style={styles.container}>
@@ -103,7 +158,7 @@ const SearchResultsScreen = ({ route, navigation }) => {
             selectedRating,
             minPrice,
             maxPrice,
-            sortingOption, // Truyền sortingOption sang màn hình Filter
+            sortingOption,
           })}
         >
           <Icon name="sliders" size={24} color="brown" />
@@ -121,7 +176,10 @@ const SearchResultsScreen = ({ route, navigation }) => {
         <FlatList
           data={products}
           renderItem={({ item }) => (
-            <View style={styles.productCard}>
+            <TouchableOpacity
+              onPress={() => navigation.navigate('ProductDetail', { productId: item.objectID })}
+              style={styles.productCard}
+            >
               <Image source={{ uri: item.image }} style={styles.productImage} />
               <View style={styles.productInfo}>
                 <Text style={styles.productName}>{item.name}</Text>
@@ -131,12 +189,19 @@ const SearchResultsScreen = ({ route, navigation }) => {
                 </View>
               </View>
               <Text style={styles.productPrice}>${item.price}</Text>
-              <TouchableOpacity style={styles.wishlistIcon}>
-                <Icon name="heart" size={20} color="gray" />
+              <TouchableOpacity
+                style={styles.wishlistIcon}
+                onPress={() => toggleWishlist(item.objectID)}
+              >
+                <Icon
+                  name="heart"
+                  size={20}
+                  color={isInWishlist(item.objectID) ? 'brown' : 'gray'}
+                />
               </TouchableOpacity>
-            </View>
+            </TouchableOpacity>
           )}
-          keyExtractor={item => item.objectID} // Algolia sử dụng objectID
+          keyExtractor={item => item.objectID}
           showsVerticalScrollIndicator={false}
           numColumns={2}
         />

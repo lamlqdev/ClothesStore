@@ -1,33 +1,70 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Header from '../components/Header';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
+const MAX_SEARCH_HISTORY = 20;  // Giới hạn tối đa 20 từ khóa
+
+// Hàm chuyển đổi ký tự có dấu thành không dấu
+const removeVietnameseTones = (str) => {
+  return str.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/đ/g, "d").replace(/Đ/g, "D");
+};
 
 const SearchScreen = ({ navigation }) => {
+  const [userId, setUserId] = useState(null);  // Lưu trữ userId
   const [searchText, setSearchText] = useState('');
   const [recentSearches, setRecentSearches] = useState([]);
 
+  // Lấy userId và lịch sử tìm kiếm từ AsyncStorage
+  useEffect(() => {
+    const getData = async () => {
+      const id = await AsyncStorage.getItem('userId');  // Lấy userId từ AsyncStorage
+      const storedHistory = await AsyncStorage.getItem('searchHistory'); // Lấy lịch sử tìm kiếm từ AsyncStorage
+      if (storedHistory) {
+        setRecentSearches(JSON.parse(storedHistory));
+      }
+      setUserId(id);  // Lưu userId vào state
+    };
+    getData();
+  }, []);  // Chỉ chạy một lần khi component được mount
+
   const handleSearch = async () => {
     if (searchText.trim()) {
-      // Điều hướng đến trang kết quả tìm kiếm với từ khóa tìm kiếm
-      navigation.navigate('SearchResults', { searchQuery: searchText }); 
-  
+      // Điều hướng đến trang kết quả tìm kiếm với từ khóa tìm kiếm và userId
+      navigation.navigate('SearchResults', { searchQuery: searchText, userId: userId });
+
       // Cập nhật lịch sử tìm kiếm
       if (!recentSearches.includes(searchText)) {
-        setRecentSearches([searchText, ...recentSearches]); // Thêm vào đầu danh sách
+        const newHistory = [searchText, ...recentSearches].slice(0, MAX_SEARCH_HISTORY); // Giữ tối đa 20 từ khóa
+        setRecentSearches(newHistory);
+        await AsyncStorage.setItem('searchHistory', JSON.stringify(newHistory)); // Lưu lại lịch sử tìm kiếm vào AsyncStorage
       }
       setSearchText(''); // Xóa ô input sau khi tìm kiếm
     }
   };
-  
 
-  const handleRemoveItem = (item) => {
-    setRecentSearches(recentSearches.filter((search) => search !== item));
+  // Gợi ý từ khóa dựa trên nội dung nhập vào, không phân biệt dấu và chữ hoa, chữ thường
+  const getFilteredSuggestions = () => {
+    if (!searchText) return [];
+
+    const normalizedSearchText = removeVietnameseTones(searchText.toLowerCase()); // Chuẩn hóa từ khóa tìm kiếm
+
+    return recentSearches.filter((item) => {
+      const normalizedItem = removeVietnameseTones(item.toLowerCase()); // Chuẩn hóa từ khóa trong lịch sử
+      return normalizedItem.includes(normalizedSearchText); // So sánh không phân biệt dấu
+    });
   };
 
-  const clearAll = () => {
+  const handleRemoveItem = async (item) => {
+    const updatedHistory = recentSearches.filter((search) => search !== item);
+    setRecentSearches(updatedHistory);
+    await AsyncStorage.setItem('searchHistory', JSON.stringify(updatedHistory)); // Cập nhật AsyncStorage
+  };
+
+  const clearAll = async () => {
     setRecentSearches([]);
+    await AsyncStorage.removeItem('searchHistory'); // Xóa lịch sử tìm kiếm trong AsyncStorage
   };
 
   return (
@@ -50,6 +87,20 @@ const SearchScreen = ({ navigation }) => {
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* Gợi ý từ khóa khi người dùng nhập */} 
+      {searchText ? (
+        <View style={styles.suggestionContainer}>
+          <Text style={styles.suggestionTitle}>Suggestions</Text>
+          <ScrollView>
+            {getFilteredSuggestions().map((item, index) => (
+              <TouchableOpacity key={index} onPress={() => setSearchText(item)}>
+                <Text style={styles.suggestionItem}>{item}</Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+        </View>
+      ) : null}
 
       {/* Recent Searches */} 
       <View style={styles.recentContainer}>
@@ -77,6 +128,10 @@ const SearchScreen = ({ navigation }) => {
   );
 };
 
+
+
+
+
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -99,15 +154,35 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     marginLeft: 8,
-    fontSize: 16,
+    fontSize: 16, // Cỡ chữ của khung tìm kiếm
   },
   searchButton: {
     color: '#007BFF',
     fontSize: 16,
     marginLeft: 10,
   },
+  suggestionContainer: {
+    marginHorizontal: 16,
+    backgroundColor: '#F5F5F5', // Giống với khung search
+    borderBottomLeftRadius: 20,  // Góc bo tròn phía dưới của phần gợi ý
+    borderBottomRightRadius: 20, // Góc bo tròn phía dưới của phần gợi ý
+  },
+  suggestionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  suggestionItem: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,  // Cỡ chữ giống với khung tìm kiếm
+    color: '#000',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
   recentContainer: {
     marginHorizontal: 16,
+    marginTop: 10,
   },
   recentHeader: {
     flexDirection: 'row',
@@ -131,9 +206,10 @@ const styles = StyleSheet.create({
     borderBottomColor: '#F0F0F0',
   },
   itemText: {
-    fontSize: 16,
+    fontSize: 16,  // Cỡ chữ giống với khung tìm kiếm
   },
 });
+
 
 export default SearchScreen;
 
