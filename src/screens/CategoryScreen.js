@@ -4,31 +4,60 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import Header from '../components/Header';
 import { useRoute } from '@react-navigation/native';
 import firestore from '@react-native-firebase/firestore'; // Import Firestore
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
-function JacketScreen({ navigation }) {
-  const route = useRoute(); 
+
+function CategoryScreen({ navigation }) {
+  const route = useRoute();
   const { title, categoryId } = route.params; // Lấy categoryId từ params
-
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState(null);
+  const [wishlist, setWishlist] = useState([]);
 
+  // Lấy userId từ AsyncStorage
+  useEffect(() => {
+    const getUserId = async () => {
+      const id = await AsyncStorage.getItem('userId');
+      setUserId(id);
+    };
+    getUserId();
+  }, []);
+
+  // Lấy danh sách wishlist từ Firestore
+  useEffect(() => {
+    if (userId) {
+      const fetchWishlist = async () => {
+        try {
+          const userRef = firestore().collection('users').doc(userId);
+          const userDoc = await userRef.get();
+          const currentWishlist = userDoc.exists && userDoc.data().wishlist ? userDoc.data().wishlist : [];
+          setWishlist(currentWishlist);
+        } catch (error) {
+          console.error("Error fetching wishlist: ", error);
+        }
+      };
+
+      fetchWishlist();
+    }
+  }, [userId]);
+
+  // Lấy danh sách sản phẩm dựa trên categoryId
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        // Truy vấn Firestore để lấy các sản phẩm có categoryId khớp
         const snapshot = await firestore()
           .collection('Products')
           .where('categoryId', '==', categoryId) // Lọc theo categoryId
           .get();
 
-        // Chuyển đổi dữ liệu từ snapshot sang array
         const fetchedProducts = snapshot.docs.map(doc => ({
           id: doc.id,
           ...doc.data(),
         }));
 
         setProducts(fetchedProducts);
-        setLoading(false); // Tắt loading khi dữ liệu đã tải xong
+        setLoading(false);
       } catch (error) {
         console.error("Error fetching products: ", error);
         setLoading(false);
@@ -36,21 +65,65 @@ function JacketScreen({ navigation }) {
     };
 
     fetchProducts();
-  }, [categoryId]); // Chỉ chạy lại khi categoryId thay đổi
+  }, [categoryId]);
+
+  // Hàm thêm/xóa sản phẩm khỏi danh sách yêu thích
+  const toggleWishlist = async (productId) => {
+    if (!userId) return;
+
+    try {
+      const userRef = firestore().collection('users').doc(userId);
+      const userDoc = await userRef.get();
+      const currentWishlist = userDoc.exists && userDoc.data().wishlist ? userDoc.data().wishlist : [];
+
+      let updatedWishlist;
+      if (currentWishlist.includes(productId)) {
+        // Nếu sản phẩm đã có trong wishlist, thì xóa nó
+        updatedWishlist = currentWishlist.filter(id => id !== productId);
+      } else {
+        // Nếu sản phẩm chưa có, thì thêm vào wishlist
+        updatedWishlist = [...currentWishlist, productId];
+      }
+
+      // Cập nhật Firestore với danh sách wishlist mới
+      await userRef.set({ wishlist: updatedWishlist }, { merge: true });
+
+      // Cập nhật state wishlist
+      setWishlist(updatedWishlist);
+    } catch (error) {
+      console.error("Error updating wishlist: ", error);
+    }
+  };
+
+  // Kiểm tra xem sản phẩm có trong wishlist hay không
+  const isInWishlist = (productId) => {
+    return wishlist.includes(productId);
+  };
 
   const renderItem = ({ item }) => (
     <View style={styles.productCard}>
-      <Image source={{ uri: item.image }} style={styles.productImage} />
-      <View style={styles.productInfo}>
-        <Text style={styles.productName}>{item.name}</Text>
-        <View style={styles.productRating}>
-          <Icon name="star" size={16} color="orange" />
-          <Text style={styles.productRatingText}>{item.rating}</Text>
+      <TouchableOpacity 
+        onPress={() => navigation.navigate('ProductDetail', { productId: item.id })} // Điều hướng tới trang chi tiết sản phẩm
+      >
+        <Image source={{ uri: item.image }} style={styles.productImage} />
+        <View style={styles.productInfo}>
+          <Text style={styles.productName}>{item.name}</Text>
+          <View style={styles.productRating}>
+            <Icon name="star" size={16} color="orange" />
+            <Text style={styles.productRatingText}>{item.rating}</Text>
+          </View>
         </View>
-      </View>
-      <Text style={styles.productPrice}>{item.price}</Text>
-      <TouchableOpacity style={styles.wishlistIcon}>
-        <Icon name="heart" size={20} color="gray" />
+        <Text style={styles.productPrice}>${item.price}</Text>
+      </TouchableOpacity>
+      <TouchableOpacity 
+        style={styles.wishlistIcon}
+        onPress={() => toggleWishlist(item.id)} // Thêm vào danh sách yêu thích
+      >
+        <Icon 
+          name="heart" 
+          size={20} 
+          color={isInWishlist(item.id) ? 'brown' : 'gray'} // Đổi màu nếu sản phẩm đã có trong wishlist
+        />
       </TouchableOpacity>
     </View>
   );
@@ -78,6 +151,7 @@ function JacketScreen({ navigation }) {
     </View>
   );
 }
+
 
 const styles = StyleSheet.create({
   productsContainer: {
@@ -128,4 +202,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default JacketScreen;
+export default CategoryScreen;

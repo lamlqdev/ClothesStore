@@ -1,22 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList, TextInput } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, FlatList, TextInput, Alert } from 'react-native';
 import Header from '../components/Header';
 
 const FilterScreen = ({ route, navigation }) => {
   const {
-    searchQuery = '', 
+    searchQuery = '', // Nhận tham số searchQuery
     selectedGender: initialGender = 'All', 
-    selectedRating: initialRating = '1.0', 
+    selectedRating: initialRating = null, 
     minPrice: initialMinPrice = 0, 
     maxPrice: initialMaxPrice = 10000000,
-    sortingOption: initialSortingOption = 'latest', // Nhận giá trị sortingOption từ route
+    sortingOption: initialSortingOption = 'latest',
   } = route.params || {};
 
   const [selectedGender, setSelectedGender] = useState(initialGender);
   const [minPrice, setMinPrice] = useState(initialMinPrice.toString()); // Convert to string
   const [maxPrice, setMaxPrice] = useState(initialMaxPrice.toString()); // Convert to string
   const [selectedRating, setSelectedRating] = useState(initialRating);
-  const [selectedSortingOption, setSelectedSortingOption] = useState(initialSortingOption); // Đặt giá trị ban đầu cho sortingOption
+  const [selectedSortingOption, setSelectedSortingOption] = useState(initialSortingOption);
 
   const genders = ['All', 'Male', 'Female', 'Unisex', 'Child'];
   const reviewRatings = [
@@ -86,9 +86,8 @@ const FilterScreen = ({ route, navigation }) => {
 
   const sections = [
     { type: 'header' },
-    { type: 'searchQuery' },
     { type: 'gender' },
-    { type: 'sorting' },  // Thêm phần sắp xếp
+    { type: 'sorting' },
     { type: 'price' },
     { type: 'reviews' },
   ];
@@ -101,13 +100,6 @@ const FilterScreen = ({ route, navigation }) => {
             title="Filter" 
             onBackPress={() => navigation.goBack()} 
           />
-        );
-      case 'searchQuery':
-        return (
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Search Query</Text>
-            <Text style={styles.searchQueryText}>{searchQuery || 'No query entered'}</Text>
-          </View>
         );
       case 'gender':
         return (
@@ -163,21 +155,29 @@ const FilterScreen = ({ route, navigation }) => {
   };
 
   const applyFilters = () => {
-    const min = Number(minPrice) || 0;
-    const max = Number(maxPrice) || 2000000;
+    const min = Number(minPrice);
+    const max = Number(maxPrice);
 
-    if (max < min) {
+    // Kiểm tra giá trị nhập vào phải là số và lớn hơn 0
+    if (isNaN(min) || isNaN(max) || min < 0 || max < 0) {
+      alert('Please enter valid numbers for price and ensure they are greater than 0.');
+      return;
+    }
+
+    // Kiểm tra max phải lớn hơn min
+    if (max <= min) {
       alert('Max price should be greater than min price.');
       return;
     }
 
-    navigation.navigate('SearchResults', { 
-      searchQuery,
+    // Điều hướng với giá trị đã kiểm tra
+    navigation.navigate('SearchResults', {
+      searchQuery, // Truyền searchQuery
       selectedGender,
-      minPrice: min, 
-      maxPrice: max, 
+      minPrice: min,
+      maxPrice: max,
       selectedRating,
-      sortingOption: selectedSortingOption, // Truyền tham số sắp xếp
+      sortingOption: selectedSortingOption,
     });
   };
 
@@ -195,9 +195,9 @@ const FilterScreen = ({ route, navigation }) => {
         <TouchableOpacity style={[styles.button, styles.resetButton]} onPress={() => {
           setSelectedGender('All');
           setMinPrice('0');
-          setMaxPrice('2000000');
-          setSelectedRating('1.0');
-          setSelectedSortingOption('latest'); // Reset lại giá trị sắp xếp
+          setMaxPrice('10000000');
+          setSelectedRating(null);
+          setSelectedSortingOption('latest');
         }}>
           <Text style={[styles.buttonText, styles.resetButtonText]}>Reset Filter</Text>
         </TouchableOpacity>

@@ -5,7 +5,6 @@ import Header from '../components/Header';
 import { fontSize, iconSize, spacing } from '../constants/dimensions';
 import Feather from 'react-native-vector-icons/Feather';
 import { Fonts } from '../constants/fonts';
-import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const menuItems = [
