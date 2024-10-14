@@ -6,23 +6,21 @@ import searchClient from '../algoliaConfig';  // Cấu hình Algolia Client
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import firestore from '@react-native-firebase/firestore';
 
-
 const SearchResultsScreen = ({ route, navigation }) => {
   const {
     searchQuery,
     selectedGender = 'All',
     selectedRating = null,
     minPrice = 0,
-    maxPrice = 10000000,
+    maxPrice = Number.MAX_SAFE_INTEGER,  // Sử dụng giá trị lớn nhất có thể
     sortingOption = 'latest',
   } = route.params || {};
 
   const [products, setProducts] = useState([]);
-  const [wishlist, setWishlist] = useState([]); // Chuyển từ object sang array để dễ xử lý
+  const [wishlist, setWishlist] = useState([]); 
   const [loading, setLoading] = useState(true);
-  const [userId, setUserId] = useState(null); // Lưu trữ userId
+  const [userId, setUserId] = useState(null); 
 
-  // Lấy userId từ AsyncStorage
   useEffect(() => {
     const getUserId = async () => {
       const id = await AsyncStorage.getItem('userId');
@@ -31,7 +29,6 @@ const SearchResultsScreen = ({ route, navigation }) => {
     getUserId();
   }, []);
 
-  // Lấy danh sách yêu thích từ Firestore
   useEffect(() => {
     if (userId) {
       const fetchWishlist = async () => {
@@ -39,7 +36,7 @@ const SearchResultsScreen = ({ route, navigation }) => {
           const userRef = firestore().collection('users').doc(userId);
           const userDoc = await userRef.get();
           const currentWishlist = userDoc.exists && userDoc.data().wishlist ? userDoc.data().wishlist : [];
-          setWishlist(currentWishlist); // Lưu danh sách yêu thích vào state
+          setWishlist(currentWishlist);
         } catch (error) {
           console.error("Error fetching wishlist: ", error);
         }
@@ -48,7 +45,6 @@ const SearchResultsScreen = ({ route, navigation }) => {
     }
   }, [userId]);
 
-  // Tìm kiếm sản phẩm qua Algolia
   useEffect(() => {
     const searchProducts = async () => {
       setLoading(true);
@@ -82,7 +78,7 @@ const SearchResultsScreen = ({ route, navigation }) => {
         }
 
         let priceFilter = '';
-        if (minPrice !== null && maxPrice !== null) {
+        if (!(minPrice === 0 && maxPrice === Number.MAX_SAFE_INTEGER)) {
           priceFilter = `price >= ${minPrice} AND price <= ${maxPrice}`;
         }
 
@@ -99,6 +95,7 @@ const SearchResultsScreen = ({ route, navigation }) => {
 
     searchProducts();
   }, [searchQuery, selectedGender, selectedRating, minPrice, maxPrice, sortingOption]);
+
 
   // Hàm thêm/xóa sản phẩm khỏi danh sách yêu thích
   const toggleWishlist = async (productId) => {

@@ -24,6 +24,7 @@ import MyOderScreen from '../screens/MyOderScreen';
 import TrackOrder from '../screens/TrackOrderScreen';
 import LeaveReviewScreen from '../screens/LeaveReviewScreen';
 import ProductDetail from '../screens/ProductDetail';
+import FilterCategory from '../screens/FilterCategoryScreen';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const Stack = createStackNavigator();
@@ -73,6 +74,7 @@ const AppNavigator = () => {
           <Stack.Screen name="TrackOrder" component={TrackOrder} />
           <Stack.Screen name="LeaveReview" component={LeaveReviewScreen} />
           <Stack.Screen name="ProductDetail" component={ProductDetail} />
+          <Stack.Screen name="FilterCategory" component={FilterCategory} />
         </>
       ) : (
         <>
