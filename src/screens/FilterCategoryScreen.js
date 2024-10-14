@@ -2,13 +2,14 @@ import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, TextInput, Alert } from 'react-native';
 import Header from '../components/Header';
 
-const FilterScreen = ({ route, navigation }) => {
+const FilterCategoryScreen = ({ route, navigation }) => {
   const {
-    searchQuery = '', 
+    title,
+    categoryId,
     selectedGender: initialGender = 'All', 
     selectedRating: initialRating = null, 
     minPrice: initialMinPrice = 0, 
-    maxPrice: initialMaxPrice = Number.MAX_SAFE_INTEGER,  
+    maxPrice: initialMaxPrice = Number.MAX_SAFE_INTEGER,  // Sử dụng Number.MAX_SAFE_INTEGER
     sortingOption: initialSortingOption = 'latest',
   } = route.params || {};
 
@@ -169,8 +170,9 @@ const FilterScreen = ({ route, navigation }) => {
     }
 
     // Điều hướng tới màn hình kết quả
-    navigation.navigate('SearchResults', {
-      searchQuery,
+    navigation.navigate('Category', {
+      title,
+      categoryId,
       selectedGender,
       minPrice: min,
       maxPrice: max,
@@ -209,10 +211,6 @@ const FilterScreen = ({ route, navigation }) => {
     </View>
   );
 };
-
-
-
-
 
 const styles = StyleSheet.create({
   container: {
@@ -339,11 +337,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default FilterScreen;
-
-
-
-
-
-
-
+export default FilterCategoryScreen;

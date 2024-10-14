@@ -3,13 +3,22 @@ import { View, Text, FlatList, Image, StyleSheet, TouchableOpacity, ActivityIndi
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Header from '../components/Header';
 import { useRoute } from '@react-navigation/native';
-import firestore from '@react-native-firebase/firestore'; // Import Firestore
+import searchClient from '../algoliaConfig'; // Sử dụng cấu hình Algolia
 import AsyncStorage from '@react-native-async-storage/async-storage';
-
+import firestore from '@react-native-firebase/firestore';
 
 function CategoryScreen({ navigation }) {
   const route = useRoute();
-  const { title, categoryId } = route.params; // Lấy categoryId từ params
+  const {
+    title,
+    categoryId,
+    selectedGender = 'All',
+    selectedRating = null,
+    minPrice = 0,
+    maxPrice = Number.MAX_SAFE_INTEGER,
+    sortingOption = 'latest',
+  } = route.params;
+
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState(null);
@@ -32,78 +41,103 @@ function CategoryScreen({ navigation }) {
           const userRef = firestore().collection('users').doc(userId);
           const userDoc = await userRef.get();
           const currentWishlist = userDoc.exists && userDoc.data().wishlist ? userDoc.data().wishlist : [];
-          setWishlist(currentWishlist);
+          setWishlist(currentWishlist); // Lưu danh sách wishlist vào state
         } catch (error) {
           console.error("Error fetching wishlist: ", error);
         }
       };
-
       fetchWishlist();
     }
   }, [userId]);
 
-  // Lấy danh sách sản phẩm dựa trên categoryId
+  // Fetch sản phẩm từ Algolia và áp dụng bộ lọc
   useEffect(() => {
     const fetchProducts = async () => {
       try {
-        const snapshot = await firestore()
-          .collection('Products')
-          .where('categoryId', '==', categoryId) // Lọc theo categoryId
-          .get();
+        let index = searchClient.initIndex('Products');
 
-        const fetchedProducts = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data(),
-        }));
+        switch (sortingOption) {
+          case 'sales':
+            index = searchClient.initIndex('Products_sales_desc');
+            break;
+          case 'priceLowToHigh':
+            index = searchClient.initIndex('Products_price_asc');
+            break;
+          case 'priceHighToLow':
+            index = searchClient.initIndex('Products_price_desc');
+            break;
+          case 'latest':
+          default:
+            index = searchClient.initIndex('Products_createdAt_desc');
+            break;
+        }
 
-        setProducts(fetchedProducts);
+        const genderFilter = selectedGender !== 'All' ? `gender:${selectedGender}` : '';
+
+        let ratingFilter = '';
+        if (selectedRating !== null) {
+          const ratingMin = parseFloat(selectedRating);
+          const ratingMax = ratingMin === 4.0 ? ratingMin + 0.5 : ratingMin + 1;
+          ratingFilter = `rating >= ${ratingMin} AND rating < ${ratingMax}`;
+        }
+
+        let priceFilter = '';
+        if (minPrice !== null && maxPrice !== null) {
+          priceFilter = `price >= ${minPrice} AND price <= ${maxPrice}`;
+        }
+
+        const categoryFilter = categoryId ? `categoryId:${categoryId}` : '';
+        const filters = [categoryFilter, genderFilter, ratingFilter, priceFilter].filter(Boolean).join(' AND ');
+
+        const result = await index.search('', { filters });
+
+        console.log('Products found:', result.hits);
+        setProducts(result.hits);
         setLoading(false);
       } catch (error) {
-        console.error("Error fetching products: ", error);
+        console.error("Error fetching products from Algolia: ", error);
         setLoading(false);
       }
     };
 
     fetchProducts();
-  }, [categoryId]);
+  }, [categoryId, selectedGender, selectedRating, minPrice, maxPrice, sortingOption]);
 
-  // Hàm thêm/xóa sản phẩm khỏi danh sách yêu thích
+  // Thêm hoặc xóa sản phẩm khỏi wishlist
   const toggleWishlist = async (productId) => {
-    if (!userId) return;
+    if (!userId) {
+      console.error("User ID not found!");
+      return;
+    }
 
+    const userRef = firestore().collection('users').doc(userId);
     try {
-      const userRef = firestore().collection('users').doc(userId);
       const userDoc = await userRef.get();
-      const currentWishlist = userDoc.exists && userDoc.data().wishlist ? userDoc.data().wishlist : [];
+      const currentWishlist = Array.isArray(userDoc.data().wishlist) ? userDoc.data().wishlist : [];
 
       let updatedWishlist;
       if (currentWishlist.includes(productId)) {
-        // Nếu sản phẩm đã có trong wishlist, thì xóa nó
         updatedWishlist = currentWishlist.filter(id => id !== productId);
       } else {
-        // Nếu sản phẩm chưa có, thì thêm vào wishlist
         updatedWishlist = [...currentWishlist, productId];
       }
 
-      // Cập nhật Firestore với danh sách wishlist mới
-      await userRef.set({ wishlist: updatedWishlist }, { merge: true });
-
-      // Cập nhật state wishlist
-      setWishlist(updatedWishlist);
+      await userRef.update({ wishlist: updatedWishlist });
+      setWishlist(updatedWishlist); // Cập nhật lại state wishlist
     } catch (error) {
       console.error("Error updating wishlist: ", error);
     }
   };
 
-  // Kiểm tra xem sản phẩm có trong wishlist hay không
+  // Kiểm tra xem sản phẩm có trong danh sách wishlist không
   const isInWishlist = (productId) => {
     return wishlist.includes(productId);
   };
 
   const renderItem = ({ item }) => (
     <View style={styles.productCard}>
-      <TouchableOpacity 
-        onPress={() => navigation.navigate('ProductDetail', { productId: item.id })} // Điều hướng tới trang chi tiết sản phẩm
+      <TouchableOpacity
+        onPress={() => navigation.navigate('ProductDetail', { productId: item.objectID })}
       >
         <Image source={{ uri: item.image }} style={styles.productImage} />
         <View style={styles.productInfo}>
@@ -115,14 +149,16 @@ function CategoryScreen({ navigation }) {
         </View>
         <Text style={styles.productPrice}>${item.price}</Text>
       </TouchableOpacity>
-      <TouchableOpacity 
+
+      {/* Biểu tượng wishlist trái tim */}
+      <TouchableOpacity
         style={styles.wishlistIcon}
-        onPress={() => toggleWishlist(item.id)} // Thêm vào danh sách yêu thích
+        onPress={() => toggleWishlist(item.objectID)}
       >
-        <Icon 
-          name="heart" 
-          size={20} 
-          color={isInWishlist(item.id) ? 'brown' : 'gray'} // Đổi màu nếu sản phẩm đã có trong wishlist
+        <Icon
+          name="heart"
+          size={20}
+          color={isInWishlist(item.objectID) ? 'brown' : 'gray'} // Đổi màu nếu sản phẩm đã có trong wishlist
         />
       </TouchableOpacity>
     </View>
@@ -130,11 +166,21 @@ function CategoryScreen({ navigation }) {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#f5f5f5' }}>
-      {/* Header */}
-      <Header 
-        title={title} 
-        onBackPress={() => navigation.goBack()} 
-      />
+      <Header title={title} onBackPress={() => navigation.goBack()} />
+      <TouchableOpacity
+        style={styles.filterIconContainer} // Cập nhật style
+        onPress={() => navigation.navigate('FilterCategory', {
+          title,
+          categoryId,
+          selectedGender,
+          selectedRating,
+          minPrice,
+          maxPrice,
+          sortingOption,
+        })}
+      >
+        <Icon name="sliders" size={24} color="brown" />
+      </TouchableOpacity>
 
       {loading ? (
         <ActivityIndicator size="large" color="#0000ff" />
@@ -142,7 +188,7 @@ function CategoryScreen({ navigation }) {
         <FlatList
           data={products}
           renderItem={renderItem}
-          keyExtractor={item => item.id.toString()}
+          keyExtractor={item => item.objectID.toString()}
           showsVerticalScrollIndicator={false}
           numColumns={2}
           contentContainerStyle={styles.productsContainer}
@@ -151,7 +197,6 @@ function CategoryScreen({ navigation }) {
     </View>
   );
 }
-
 
 const styles = StyleSheet.create({
   productsContainer: {
@@ -199,6 +244,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 8,
     right: 8,
+  },
+  filterIconContainer: {
+    position: 'absolute',
+    top: 10,
+    right: 16, // Chuyển icon sang phải
+    zIndex: 1,
   },
 });
 
