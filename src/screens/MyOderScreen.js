@@ -71,7 +71,7 @@ const MyOrderScreen = () => {
     return (
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.White} />
-            <Header title="My Orders" onBackPress={() => navigation.goBack()} />
+            <Header title="My Orders" onBackPress={() => navigation.navigate('Profile')} />
             <View style={styles.buttonContainer}>
                 <TabText title="Active" isActive={activeTab === 'active'} />
                 <TabText title="Completed" isActive={activeTab === 'completed'} />

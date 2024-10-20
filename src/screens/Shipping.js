@@ -1,118 +1,194 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, FlatList } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import React, { useEffect, useState } from 'react';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/MaterialIcons';
 import Icon2 from 'react-native-vector-icons/Ionicons';
-import Icon3 from 'react-native-vector-icons/FontAwesome';
+import firestore from '@react-native-firebase/firestore';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 
-const AddressItem = ({ type, address, isSelected, onSelect }) => (
-  <TouchableOpacity style={styles.addressItem} onPress={onSelect}>
-    <View style={styles.addressInfo}>
-      <Icon name="location-on" size={24} color="brown" />
-      <View>
-        <Text style={styles.addressType}>{type}</Text>
-        <Text style={styles.addressText}>{address}</Text>
-      </View>
-    </View>
-    <TouchableOpacity onPress={onSelect}>
-      <Icon2
-        name={isSelected ? 'radio-button-on' : 'radio-button-off'}
-        size={24}
-        color={isSelected ? '#8B4513' : '#ccc'}
-      />
-    </TouchableOpacity>
-  </TouchableOpacity>
-);
+const ShippingAddressScreen = ({ navigation, route }) => {
+  const [addressList, setAddressList] = useState([]);
+  const [selectedAddress, setSelectedAddress] = useState(null);
+  const [userId, setUserId] = useState(null);
 
-const Button = ({ title, onPress }) => (
-  <TouchableOpacity style={styles.button} onPress={onPress}>
-    <Text style={styles.buttonText}>{title}</Text>
-  </TouchableOpacity>
-);
+  // Lấy selectedProducts từ route nếu có
+  const { selectedProducts = [], selectedPhone } = route.params || {};
 
-const ShippingAddressScreen = ({ navigation }) => {
-  const addresses = [
-    { type: 'Home', address: '1901 Thornridge Cir. Shiloh, Hawaii 81063' },
-    { type: 'Office', address: '4517 Washington Ave. Manchester 39495' },
-    { type: "Parent's House", address: '8502 Preston Rd. Inglewood, Maine 98380' },
-    { type: "Friend's House", address: '2464 Royal Ln. Mesa, New Jersey 45463' },
-  ];
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const id = await AsyncStorage.getItem('userId');
+      setUserId(id);
+    };
 
-  const [selectedAddress, setSelectedAddress] = useState(0);
+    const fetchAddresses = async () => {
+      if (userId) {
+        try {
+          const userDoc = await firestore().collection('users').doc(userId).get();
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            setAddressList(userData.addresslist || []);
+          }
+        } catch (error) {
+          console.error('Error fetching addresses:', error);
+        }
+      }
+    };
+
+    fetchUserId();
+    if (userId) {
+      fetchAddresses();
+    }
+  }, [userId]); 
 
   const handleAddressSelect = (index) => {
-    setSelectedAddress(index);
+    setSelectedAddress(index);  // Lưu chỉ số của địa chỉ đã chọn
   };
 
+  const handleApply = () => {
+    if (selectedAddress !== null) {
+      const selectedAddressObject = addressList[selectedAddress];
+      // Pass the address and selected products to the Checkout screen
+      navigation.navigate('Checkout', {
+        selectedProducts,
+        selectedAddress: selectedAddressObject, // Đảm bảo tên trường đúng
+        selectedPhone // Giữ số điện thoại hiện tại
+      });
+    } else {
+      alert('Please select an address');
+    }
+  };  
+
+  const renderAddressItem = ({ item, index }) => (
+    <TouchableOpacity style={styles.addressItem} onPress={() => handleAddressSelect(index)}>
+      <View style={styles.addressInfo}>
+        <Icon name="location-on" size={24} color="brown" />
+        <View>
+          <Text style={styles.addressType}>{item.type || 'Address'}</Text>
+          <Text style={styles.addressText}>{item.street}, {item.city}, {item.province}</Text>
+        </View>
+      </View>
+      <TouchableOpacity onPress={() => handleAddressSelect(index)}>
+        <Icon2
+          name={selectedAddress === index ? 'radio-button-on' : 'radio-button-off'}
+          size={24}
+          color={selectedAddress === index ? '#8B4513' : '#ccc'}
+        />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       <Header title="Shipping Address" onBackPress={() => navigation.goBack()} />
       <FlatList
-        data={addresses}
-        renderItem={({ item, index }) => (
-          <AddressItem
-            type={item.type}
-            address={item.address}
-            isSelected={index === selectedAddress}
-            onSelect={() => handleAddressSelect(index)}
-          />
-        )}
-        keyExtractor={(item, index) => index.toString()}
+        data={addressList}
+        renderItem={renderAddressItem}
+        keyExtractor={(item, index) => `address-${index}`}
+        ListEmptyComponent={<Text style={styles.emptyText}>No addresses available.</Text>}
       />
-      <TouchableOpacity style={styles.addAddress}>
+      <TouchableOpacity
+        style={styles.addAddress}
+        onPress={() => navigation.navigate('AddAddress')}
+      >
         <Icon name="add" size={24} color="#000" />
         <Text style={styles.addAddressText}>Add New Shipping Address</Text>
       </TouchableOpacity>
-      <Button title="Apply" onPress={() => {}} />
-    </SafeAreaView>
+      <TouchableOpacity style={styles.button} onPress={handleApply}>
+        <Text style={styles.buttonText}>Apply</Text>
+      </TouchableOpacity>
+    </View>
   );
 };
 
-const ChooseShippingScreen = ({ navigation }) => {
-  const shippingOptions = [
-    { type: 'Economy', date: '25 September 2024', icon: <Icon name="shopping-bag" size={24} color="brown" /> },
-    { type: 'Regular', date: '24 September 2024', icon: <Icon name="shopping-bag" size={24} color="brown" /> },
-    { type: 'Cargo', date: '22 September 2024', icon: <Icon3 name="truck" size={24} color="brown" /> },
-    { type: "Friend's House", address: '2464 Royal Ln. Mesa, New Jersey 45463', icon: <Icon3 name="truck" size={24} color="brown" /> },
-  ];
+const ChoosePhoneScreen = ({ navigation, route }) => {
+  const [phoneList, setPhoneList] = useState([]);
+  const [selectedPhone, setSelectedPhone] = useState(null);
+  const [userId, setUserId] = useState(null);
 
-  const [selectedOption, setSelectedOption] = useState(0);
+  // Kiểm tra nếu selectedProducts tồn tại trong route.params
+  const { selectedProducts = [], selectedAddress } = route.params || {};
 
-  const handleOptionPress = (index) => {
-    setSelectedOption(index);
+  useEffect(() => {
+    const fetchUserId = async () => {
+      const id = await AsyncStorage.getItem('userId');
+      setUserId(id);
+    };
+
+    const fetchPhones = async () => {
+      if (userId) {
+        try {
+          const userDoc = await firestore().collection('users').doc(userId).get();
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            setPhoneList(userData.phonelist || []);
+          }
+        } catch (error) {
+          console.error('Error fetching phones:', error);
+        }
+      }
+    };
+
+    fetchUserId();
+    if (userId) {
+      fetchPhones();
+    }
+  }, [userId]);
+
+  const handlePhoneSelect = (index) => {
+    setSelectedPhone(phoneList[index]);
   };
 
+  const renderPhoneItem = ({ item, index }) => (
+    <TouchableOpacity style={styles.addressItem} onPress={() => handlePhoneSelect(index)}>
+      <View style={styles.addressInfo}>
+        <Icon name="phone" size={24} color="brown" />
+        <View>
+          <Text style={styles.addressType}>Phone</Text>
+          <Text style={styles.addressText}>{item}</Text>
+        </View>
+      </View>
+      <TouchableOpacity onPress={() => handlePhoneSelect(index)}>
+        <Icon2
+          name={selectedPhone === phoneList[index] ? 'radio-button-on' : 'radio-button-off'}
+          size={24}
+          color={selectedPhone === phoneList[index] ? '#8B4513' : '#ccc'}
+        />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
+
+  const handleApply = () => {
+    if (selectedPhone) {
+      navigation.navigate('Checkout', {
+        selectedProducts,
+        selectedAddress, // Giữ địa chỉ hiện tại
+        selectedPhone // Truyền số điện thoại đã chọn
+      });
+    } else {
+      alert('Please select a phone number');
+    }
+  };  
+
   return (
-    <SafeAreaView style={styles.container}>
-      <Header title="Choose Shipping" onBackPress={() => navigation.goBack()} />
+    <View style={styles.container}>
+      <Header title="Choose Phone" onBackPress={() => navigation.goBack()} />
       <FlatList
-        data={shippingOptions}
-        renderItem={({ item, index }) => (
-          <TouchableOpacity
-            style={styles.addressItem}
-            onPress={() => handleOptionPress(index)}
-          >
-            <View style={styles.addressInfo}>
-              {item.icon}
-              <View>
-                <Text style={styles.addressType}>{item.type}</Text>
-                <Text style={styles.addressText}>{item.date ? `Estimated Arrival ${item.date}` : item.address}</Text>
-              </View>
-            </View>
-            <TouchableOpacity onPress={() => handleOptionPress(index)}>
-              <Icon2
-                name={selectedOption === index ? 'radio-button-on' : 'radio-button-off'}
-                size={24}
-                color={selectedOption === index ? '#8B4513' : '#ccc'}
-              />
-            </TouchableOpacity>
-          </TouchableOpacity>
-        )}
-        keyExtractor={(item, index) => index.toString()}
+        data={phoneList}
+        renderItem={renderPhoneItem}
+        keyExtractor={(item, index) => `phone-${index}`}
+        ListEmptyComponent={<Text style={styles.emptyText}>No phone numbers available.</Text>}
       />
-      <Button title="Apply" onPress={() => {}} />
-    </SafeAreaView>
+      <TouchableOpacity
+        style={styles.addAddress}
+        onPress={() => navigation.navigate('AddPhone')}
+      >
+        <Icon name="add" size={24} color="#000" />
+        <Text style={styles.addAddressText}>Add New Phone Number</Text>
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.button} onPress={handleApply}>
+        <Text style={styles.buttonText}>Apply</Text>
+      </TouchableOpacity>
+    </View>
   );
 };
 
@@ -167,6 +243,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
+  emptyText: {
+    textAlign: 'center',
+    marginVertical: 20,
+    fontSize: 16,
+    color: '#666',
+  },
 });
 
-export { ShippingAddressScreen, ChooseShippingScreen };
+export { ShippingAddressScreen, ChoosePhoneScreen };

@@ -15,7 +15,9 @@ import CheckoutScreen from '../screens/CheckoutScreen';
 import PaymentScreen from '../screens/PaymentScreen';
 import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
 import AddCardScreen from '../screens/AddCardScreen';
-import { ChooseShippingScreen, ShippingAddressScreen } from '../screens/Shipping';
+import { ChoosePhoneScreen, ShippingAddressScreen } from '../screens/Shipping';
+import AddAddressScreen from '../screens/AddAddressScreen';
+import AddPhoneScreen from '../screens/AddPhoneScreen';
 import SettingsScreen from '../screens/SettingScreen';
 import PasswordManagerScreen from '../screens/PasswordManagerScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
@@ -62,7 +64,9 @@ const AppNavigator = () => {
           <Stack.Screen name="Notification" component={NotificationScreen} />
           <Stack.Screen name="Checkout" component={CheckoutScreen} />
           <Stack.Screen name="ShippingAddress" component={ShippingAddressScreen} />
-          <Stack.Screen name="ChooseShipping" component={ChooseShippingScreen} />
+          <Stack.Screen name="ChoosePhone" component={ChoosePhoneScreen} />
+          <Stack.Screen name="AddAddress" component={AddAddressScreen} />
+          <Stack.Screen name="AddPhone" component={AddPhoneScreen} />
           <Stack.Screen name="Payment" component={PaymentScreen} />
           <Stack.Screen name="AddCard" component={AddCardScreen} />
           <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />

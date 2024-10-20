@@ -10,7 +10,7 @@ const PaymentSuccessScreen = () => {
 
     return (
         <View style={styles.container}>
-            <Header title="Payment" onBackPress={() => navigation.goBack()} />
+            <Header title="Payment" onBackPress={() => navigation.navigate('Home')} />
 
             <View style={styles.successContainer}>
                 <View style={styles.successIcon}>

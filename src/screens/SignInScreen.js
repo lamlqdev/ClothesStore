@@ -60,7 +60,9 @@ const SignInScreen = ({ navigation, onlogin }) => {
           membershipLevel: null,
           imageUrl: null,
           wishlist: [],
-          cartlist: []
+          cartlist: [],
+          phonelist: [],
+          addresslist: [],
         });
       }
 
@@ -91,7 +93,9 @@ const SignInScreen = ({ navigation, onlogin }) => {
           membershipLevel: null,
           imageUrl: null,
           wishlist: [],
-          cartlist: []
+          cartlist: [],
+          phonelist: [],
+          addresslist: [],
         });
       }
 

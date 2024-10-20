@@ -153,10 +153,19 @@ const CartScreen = ({ navigation }) => {
   const handleCheckout = () => {
     if (selectedItems.length > 0) {
       navigation.navigate('Checkout', { selectedProducts: selectedItems });
+      // Reset selectedItems và total sau khi điều hướng
+      setSelectedItems([]);
+      setSelectAll(false);
     } else {
       Alert.alert('Please select products to checkout.');
     }
   };
+
+  useEffect(() => {
+    // Khi cartItems thay đổi, tính lại total
+    const newTotal = selectedItems.reduce((total, item) => total + item.price * item.quantity, 0).toFixed(2);
+    calculateTotal(newTotal);
+  }, [selectedItems, cartItems]);
 
   const toggleSelectItem = (item) => {
     if (selectedItems.includes(item)) {
@@ -217,7 +226,7 @@ const CartScreen = ({ navigation }) => {
         </View>
       </View>
     </Swipeable>
-  );
+  );  
 
   if (loading) {
     return <Text>Loading...</Text>;
