@@ -36,43 +36,13 @@ const CheckoutScreen = () => {
   }, [selectedProducts]);
 
   const handlePlaceOrder = async () => {
-    try {
-      // Lưu đơn hàng vào Firestore
-      const orderData = {
-        address: address,
-        phone: phone,
-        orderStatus: 'Active',
-        orderTime: firestore.FieldValue.serverTimestamp(),
-        total: totalAmount,
-        userId: userId,
-        cartId: selectedProducts.map(product => product.cartId)
-      };
-
-      await firestore().collection('Orders').add(orderData);
-
-      // Xóa sản phẩm trong collection 'Cart'
-      const batch = firestore().batch();
-      selectedProducts.forEach((product) => {
-        const cartDocRef = firestore().collection('Cart').doc(product.cartId);
-        batch.delete(cartDocRef);
-      });
-
-      // Cập nhật cartlist của user
-      await firestore().collection('users').doc(userId).update({
-        cartlist: firestore.FieldValue.arrayRemove(...selectedProducts.map(product => product.cartId)),
-      });
-
-      await batch.commit();
-
-      // Đặt hàng thành công, reset lại totalAmount
-      setTotalAmount(0);
-
-      navigation.navigate('Payment');
-    } catch (error) {
-      console.error('Error placing order:', error);
-      Alert.alert('Failed to place order. Please try again.');
+    if (!address || !phone) {
+      Alert.alert('Missing Information', 'Please make sure to select both an address and phone number.');
+      return;
     }
-  };
+  
+    navigation.navigate('Payment', { selectedProducts, selectedAddress: address, selectedPhone: phone });
+  };  
 
   useFocusEffect(
     useCallback(() => {

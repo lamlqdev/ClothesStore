@@ -20,7 +20,7 @@ const PaymentSuccessScreen = () => {
                 <Text style={styles.subText}>Thank you for your purchase.</Text>
             </View>
 
-            <TouchableOpacity style={styles.viewOrderButton} onPress={() => navigation.navigate('MyOrders')} >
+            <TouchableOpacity style={styles.viewOrderButton} onPress={() => navigation.navigate('MyOrders')}>
                 <Text style={styles.buttonText}>View Order</Text>
             </TouchableOpacity>
         </View>

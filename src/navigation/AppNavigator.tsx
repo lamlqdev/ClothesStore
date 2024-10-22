@@ -14,7 +14,6 @@ import NewPasswordScreen from '../screens/NewPasswordScreen';
 import CheckoutScreen from '../screens/CheckoutScreen';
 import PaymentScreen from '../screens/PaymentScreen';
 import PaymentSuccessScreen from '../screens/PaymentSuccessScreen';
-import AddCardScreen from '../screens/AddCardScreen';
 import { ChoosePhoneScreen, ShippingAddressScreen } from '../screens/Shipping';
 import AddAddressScreen from '../screens/AddAddressScreen';
 import AddPhoneScreen from '../screens/AddPhoneScreen';
@@ -68,7 +67,6 @@ const AppNavigator = () => {
           <Stack.Screen name="AddAddress" component={AddAddressScreen} />
           <Stack.Screen name="AddPhone" component={AddPhoneScreen} />
           <Stack.Screen name="Payment" component={PaymentScreen} />
-          <Stack.Screen name="AddCard" component={AddCardScreen} />
           <Stack.Screen name="PaymentSuccess" component={PaymentSuccessScreen} />
           <Stack.Screen name="Setting" component={SettingsScreen} />
           <Stack.Screen name="PasswordManager" component={PasswordManagerScreen} />

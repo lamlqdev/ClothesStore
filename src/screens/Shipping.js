@@ -38,7 +38,11 @@ const ShippingAddressScreen = ({ navigation, route }) => {
     if (userId) {
       fetchAddresses();
     }
-  }, [userId]); 
+    // Nếu có tham số refresh, gọi lại fetchAddresses
+    if (route.params?.refresh) {
+      fetchAddresses();
+    }
+  }, [userId, route.params]); // Thêm route.params vào dependency
 
   const handleAddressSelect = (index) => {
     setSelectedAddress(index);  // Lưu chỉ số của địa chỉ đã chọn
@@ -56,7 +60,7 @@ const ShippingAddressScreen = ({ navigation, route }) => {
     } else {
       alert('Please select an address');
     }
-  };  
+  };
 
   const renderAddressItem = ({ item, index }) => (
     <TouchableOpacity style={styles.addressItem} onPress={() => handleAddressSelect(index)}>
@@ -64,7 +68,9 @@ const ShippingAddressScreen = ({ navigation, route }) => {
         <Icon name="location-on" size={24} color="brown" />
         <View>
           <Text style={styles.addressType}>{item.type || 'Address'}</Text>
-          <Text style={styles.addressText}>{item.street}, {item.city}, {item.province}</Text>
+          <Text style={styles.addressText} numberOfLines={2} ellipsizeMode="tail">
+            {item.street}, {item.city}, {item.province}
+          </Text>
         </View>
       </View>
       <TouchableOpacity onPress={() => handleAddressSelect(index)}>
@@ -75,7 +81,7 @@ const ShippingAddressScreen = ({ navigation, route }) => {
         />
       </TouchableOpacity>
     </TouchableOpacity>
-  );
+  );  
 
   return (
     <View style={styles.container}>
@@ -167,7 +173,7 @@ const ChoosePhoneScreen = ({ navigation, route }) => {
     } else {
       alert('Please select a phone number');
     }
-  };  
+  };
 
   return (
     <View style={styles.container}>
@@ -218,6 +224,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginLeft: 16,
+    flexWrap: 'wrap',
+    maxWidth: '85%',
   },
   addAddress: {
     flexDirection: 'row',

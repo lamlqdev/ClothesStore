@@ -24,6 +24,7 @@
     "@react-navigation/native-stack": "^6.11.0",
     "@react-navigation/stack": "^6.4.1",
     "algoliasearch": "^4.24.0",
+    "axios": "^1.7.7",
     "firebase": "^10.14.0",
     "react": "18.3.1",
     "react-instantsearch-native": "^6.40.4",

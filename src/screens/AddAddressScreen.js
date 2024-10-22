@@ -1,21 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import axios from 'axios';
 import firestore from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 import { Picker } from '@react-native-picker/picker';
 
-const provinces = ['Hà Nội', 'Hồ Chí Minh', 'Đà Nẵng'];
-const cities = {
-  'Hà Nội': ['Ba Đình', 'Hoàn Kiếm', 'Đống Đa'],
-  'Hồ Chí Minh': ['Quận 1', 'Quận 2', 'Quận 3'],
-  'Đà Nẵng': ['Hải Châu', 'Cẩm Lệ', 'Sơn Trà']
-};
-
 const AddAddressScreen = ({ navigation }) => {
-  const [street, setStreet] = useState('');  
-  const [selectedProvince, setSelectedProvince] = useState(provinces[0]);  
-  const [selectedCity, setSelectedCity] = useState(cities[provinces[0]][0]);  
+  const [street, setStreet] = useState('');
+  const [provinces, setProvinces] = useState([]);
+  const [cities, setCities] = useState([]);
+  const [wards, setWards] = useState([]);
+  const [selectedProvince, setSelectedProvince] = useState(null);
+  const [selectedCity, setSelectedCity] = useState(null);
+  const [selectedWard, setSelectedWard] = useState(null);
   const [userId, setUserId] = useState(null);
 
   useEffect(() => {
@@ -23,12 +21,56 @@ const AddAddressScreen = ({ navigation }) => {
       const id = await AsyncStorage.getItem('userId');
       setUserId(id);
     };
+
+    const fetchProvinces = async () => {
+      try {
+        const response = await axios.get('https://esgoo.net/api-tinhthanh/1/0.htm');
+        if (response.data.error === 0) {
+          setProvinces(response.data.data);
+          setSelectedProvince(response.data.data[0].id);
+        }
+      } catch (error) {
+        console.error('Error fetching provinces:', error);
+      }
+    };
+
     fetchUserId();
+    fetchProvinces();
   }, []);
 
   useEffect(() => {
-    setSelectedCity(cities[selectedProvince][0]);
+    if (selectedProvince) {
+      const fetchCities = async () => {
+        try {
+          const response = await axios.get(`https://esgoo.net/api-tinhthanh/2/${selectedProvince}.htm`);
+          if (response.data.error === 0) {
+            setCities(response.data.data);
+            setSelectedCity(response.data.data[0]?.id);
+          }
+        } catch (error) {
+          console.error('Error fetching cities:', error);
+        }
+      };
+      fetchCities();
+    }
   }, [selectedProvince]);
+
+  useEffect(() => {
+    if (selectedCity) {
+      const fetchWards = async () => {
+        try {
+          const response = await axios.get(`https://esgoo.net/api-tinhthanh/3/${selectedCity}.htm`);
+          if (response.data.error === 0) {
+            setWards(response.data.data);
+            setSelectedWard(response.data.data[0]?.id);
+          }
+        } catch (error) {
+          console.error('Error fetching wards:', error);
+        }
+      };
+      fetchWards();
+    }
+  }, [selectedCity]);
 
   const handleAddAddress = async () => {
     if (street === '') {
@@ -36,10 +78,15 @@ const AddAddressScreen = ({ navigation }) => {
       return;
     }
 
+    const selectedProvinceName = provinces.find(p => p.id === selectedProvince)?.full_name || '';
+    const selectedCityName = cities.find(c => c.id === selectedCity)?.full_name || '';
+    const selectedWardName = wards.find(w => w.id === selectedWard)?.full_name || '';
+
     const newAddress = {
       street: street,
-      city: selectedCity,
-      province: selectedProvince
+      ward: selectedWardName,
+      city: selectedCityName,
+      province: selectedProvinceName
     };
 
     try {
@@ -57,8 +104,8 @@ const AddAddressScreen = ({ navigation }) => {
       }
 
       Alert.alert('Address added successfully');
-      setStreet('');  
-      navigation.navigate('ShippingAddress');
+      setStreet('');
+      navigation.navigate('ShippingAddress', { refresh: true });
     } catch (error) {
       console.error('Error adding address:', error);
       Alert.alert('Failed to add address');
@@ -82,8 +129,8 @@ const AddAddressScreen = ({ navigation }) => {
           onValueChange={(itemValue) => setSelectedProvince(itemValue)}
           style={styles.picker}
         >
-          {provinces.map((province, index) => (
-            <Picker.Item key={index} label={province} value={province} />
+          {provinces.map((province) => (
+            <Picker.Item key={province.id} label={province.full_name} value={province.id} />
           ))}
         </Picker>
 
@@ -93,8 +140,19 @@ const AddAddressScreen = ({ navigation }) => {
           onValueChange={(itemValue) => setSelectedCity(itemValue)}
           style={styles.picker}
         >
-          {cities[selectedProvince].map((city, index) => (
-            <Picker.Item key={index} label={city} value={city} />
+          {cities.map((city) => (
+            <Picker.Item key={city.id} label={city.full_name} value={city.id} />
+          ))}
+        </Picker>
+
+        <Text style={styles.label}>Ward:</Text>
+        <Picker
+          selectedValue={selectedWard}
+          onValueChange={(itemValue) => setSelectedWard(itemValue)}
+          style={styles.picker}
+        >
+          {wards.map((ward) => (
+            <Picker.Item key={ward.id} label={ward.full_name} value={ward.id} />
           ))}
         </Picker>
 
@@ -109,39 +167,44 @@ const AddAddressScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    padding: 20,
+    backgroundColor: 'white'
   },
   inputContainer: {
-    padding: 16,
+    marginVertical: 20,
   },
   label: {
-    marginVertical: 8,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
+    marginBottom: 5,
+    color: 'black'
   },
   input: {
     borderWidth: 1,
     borderColor: '#ccc',
-    padding: 12,
-    borderRadius: 8,
+    padding: 10,
+    borderRadius: 5,
+    marginBottom: 15,
   },
   picker: {
+    height: 50,
+    width: '100%',
+    marginBottom: 15,
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    marginVertical: 8,
+    borderColor: '#007BFF',
+    backgroundColor: 'gray',
+    borderRadius: 65,
+    color: 'white'
   },
   button: {
-    backgroundColor: '#8B4513',
-    padding: 16,
+    backgroundColor: 'brown',
+    padding: 15,
+    borderRadius: 5,
     alignItems: 'center',
-    borderRadius: 8,
-    marginTop: 16,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
-    fontWeight: 'bold',
   },
 });
 

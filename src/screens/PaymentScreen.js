@@ -1,41 +1,89 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Icon2 from 'react-native-vector-icons/Ionicons';
 import Icon3 from 'react-native-vector-icons/FontAwesome6';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 
-const PaymentScreen = ({ route }) => {
+const PaymentScreen = () => {
     const navigation = useNavigation();
-    const { fromProfile } = route.params || {};
-
+    const route = useRoute();
+    const { selectedProducts, selectedAddress, selectedPhone, fromProfile } = route.params || {};
     const [selectedOption, setSelectedOption] = useState(null);
+    const [userId, setUserId] = useState(null);
 
     const paymentOptions = [
         { id: 'paypal', name: 'Paypal', icon: <Icon name="paypal" size={24} color="#0070BA" /> },
-        { id: 'applepay', name: 'Apple Pay', icon: <Icon name="apple" size={24} color="black" /> },
-        { id: 'googlepay', name: 'Google Pay', icon: <Icon3 name="google-pay" size={24} color="#4285F4" /> },
+        { id: 'momo', name: 'Momo', icon: <Icon name="credit-card" size={24} color="purple" /> },
+        { id: 'zalopay', name: 'Zalo Pay', icon: <Icon3 name="google-pay" size={24} color="#4285F4" /> },
     ];
+
+    useEffect(() => {
+        const fetchUserId = async () => {
+            const id = await AsyncStorage.getItem('userId');
+            setUserId(id);
+        };
+        fetchUserId();
+    }, []);
+
+    const handleConfirmPayment = async () => {
+        if (!selectedOption) {
+            Alert.alert('Payment Option Required', 'Please select a payment option.');
+            return;
+        }
+
+        try {
+            let paymentResult = await callPaymentAPI(selectedOption);
+
+            if (paymentResult.success) {
+                const totalAmount = selectedProducts.reduce((sum, product) => sum + product.price * product.quantity, 0).toFixed(2);
+
+                const orderData = {
+                    address: selectedAddress,
+                    phone: selectedPhone,
+                    orderStatus: 'Active',
+                    orderTime: firestore.FieldValue.serverTimestamp(),
+                    total: totalAmount,
+                    userId: userId,
+                    products: selectedProducts.map(product => ({
+                        productId: product.product.id,
+                        name: product.product.name,
+                        quantity: product.quantity,
+                        price: product.price,
+                    })),
+                };
+
+                await firestore().collection('Orders').add(orderData);
+
+                Alert.alert('Your order has been placed successfully.');
+                navigation.navigate('PaymentSuccess');
+            } else {
+                Alert.alert('Payment Failed', 'Please try again.');
+            }
+
+        } catch (error) {
+            console.error('Error placing order:', error);
+            Alert.alert('Payment Failed', 'Failed to place your order. Please try again.');
+        }
+    };
 
     const handleOptionPress = (optionId) => {
         setSelectedOption(optionId);
+    };
+
+    const callPaymentAPI = async (paymentOption) => {
+        // Logic API thanh toán với Momo, ZaloPay, PayPal, ...
+        // Ví dụ đơn giản:
+        return { success: true };
     };
 
     return (
         <View style={styles.container}>
             <Header title="Payment Methods" onBackPress={() => navigation.goBack()} />
 
-            <Text style={styles.paymentOptionsTitle}>Credit & Debit Card</Text>
-            <View style={styles.cardSection}>
-                <TouchableOpacity style={styles.cardButton} onPress={() => navigation.navigate('AddCard')}>
-                    <Icon name="credit-card" size={24} color="#8B4513" />
-                    <Text style={styles.cardText}>Add Card</Text>
-                    <Icon name="chevron-right" size={20} color="#8B4513" />
-                </TouchableOpacity>
-            </View>
-
-            <Text style={styles.paymentOptionsTitle}>More Payment Options</Text>
+            <Text style={styles.paymentOptionsTitle}>Payment Options</Text>
             <FlatList
                 data={paymentOptions}
                 keyExtractor={(item) => item.id}
@@ -64,7 +112,7 @@ const PaymentScreen = ({ route }) => {
             {!fromProfile && (
                 <TouchableOpacity
                     style={styles.confirmButton}
-                    onPress={() => navigation.navigate('PaymentSuccess')}
+                    onPress={handleConfirmPayment}
                 >
                     <Text style={styles.confirmButtonText}>Confirm Payment</Text>
                 </TouchableOpacity>
