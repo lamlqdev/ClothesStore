@@ -9,7 +9,6 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const menuItems = [
     { title: 'Your profile', icon: 'user' },
-    { title: 'Payment Methods', icon: 'credit-card' },
     { title: 'My Orders', icon: 'shopping-bag' },
     { title: 'Settings', icon: 'settings' },
     { title: 'Contact Us', icon: 'help-circle' },
@@ -26,16 +25,14 @@ const ProfileScreen = ({ navigation, onLogout }) => {
             onPress={() => {
                 if (item.title === 'Settings') {
                     navigation.navigate('Setting');
-                } else if (item.title === 'Payment Methods') {
-                    navigation.navigate('Payment', { fromProfile: true });
                 } else if (item.title === 'Privacy Policy') {
-                    navigation.navigate('PrivacyPolicy', { fromProfile: true });
+                    navigation.navigate('PrivacyPolicy');
                 } else if (item.title === 'Contact Us') {
-                    navigation.navigate('ContactUs', { fromProfile: true });
+                    navigation.navigate('ContactUs');
                 } else if (item.title === 'Log out') {
                     setLogoutModalVisible(true);
                 } else if (item.title === 'My Orders') {
-                    navigation.navigate('MyOrders', { fromProfile: true });
+                    navigation.navigate('MyOrders');
                 }
             }}
         >
