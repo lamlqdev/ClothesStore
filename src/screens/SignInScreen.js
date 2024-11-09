@@ -59,7 +59,10 @@ const SignInScreen = ({ navigation, onlogin }) => {
           name: user.displayName || 'User',
           membershipLevel: null,
           imageUrl: null,
-          wishlist: []
+          wishlist: [],
+          cartlist: [],
+          phonelist: [],
+          addresslist: [],
         });
       }
 
@@ -89,7 +92,10 @@ const SignInScreen = ({ navigation, onlogin }) => {
           name: user.displayName || 'User',
           membershipLevel: null,
           imageUrl: null,
-          wishlist: []
+          wishlist: [],
+          cartlist: [],
+          phonelist: [],
+          addresslist: [],
         });
       }
 

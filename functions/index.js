@@ -1,100 +1,69 @@
 const functions = require('firebase-functions');
-const { SessionsClient } = require('@google-cloud/dialogflow-cx');
 const admin = require('firebase-admin');
+const CryptoJS = require('crypto-js');
 
-const serviceAccount = require('./fashionstore-3d195-01337bdd50ae.json');
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-});
+admin.initializeApp();
 
-const projectId = 'fashionstore-3d195';
-const location = 'us-central1';
-const agentId = '6789c600-da1e-4017-a85c-cab0344c1e79';
-const languageCode = 'en';
+const key2 = "trMrHtvjo6myautxDUiAcYsVtaeQ8nhf"; // Thay bằng key2 thật của bạn
 
-const client = new SessionsClient({ apiEndpoint: `${location}-dialogflow.googleapis.com` });
+exports.zaloPayCallback = functions.https.onRequest(async (req, res) => {
+  let result = {};
 
-exports.detectIntentTextV2 = functions.https.onRequest(async (req, res) => {
   try {
-    const query = req.body.query;
-    if (!query) {
-      res.status(400).send('Query parameter is missing');
-      return;
+    // Lấy dữ liệu từ request
+    let dataStr = req.body.data;
+    let reqMac = req.body.mac;
+
+    if (!dataStr || !reqMac) {
+      throw new Error("Dữ liệu không đầy đủ hoặc thiếu 'mac'");
     }
 
-    const sessionId = Math.random().toString(36).substring(7);
-    const sessionPath = client.projectLocationAgentSessionPath(
-      projectId,
-      location,
-      agentId,
-      sessionId
-    );
+    // Tạo mã HMAC từ key2 và dữ liệu nhận được
+    let mac = CryptoJS.HmacSHA256(dataStr, key2).toString();
+    console.log("Generated MAC:", mac);
 
-    const request = {
-      session: sessionPath,
-      queryInput: {
-        text: {
-          text: query,
-        },
-        languageCode,
-      },
-    };
+    // Kiểm tra tính hợp lệ của callback
+    if (reqMac !== mac) {
+      // Callback không hợp lệ
+      result.return_code = -1;
+      result.return_message = "Xác thực thất bại: MAC không khớp";
+    } else {
+      // Xử lý khi thanh toán thành công
+      let dataJson;
+      try {
+        dataJson = JSON.parse(dataStr);
+      } catch (parseError) {
+        throw new Error("Lỗi phân tích dữ liệu JSON: " + parseError.message);
+      }
 
-    const [response] = await client.detectIntent(request);
+      console.log("Thanh toán thành công cho app_trans_id:", dataJson["app_trans_id"]);
 
-    // Lấy các tin nhắn văn bản phản hồi từ bot
-    const messages = response.queryResult.responseMessages
-      .map((msg) => (msg.text ? msg.text.text : ''))
-      .filter((text) => text);
+      // Cập nhật trạng thái đơn hàng trong Firestore
+      //const orderId = dataJson["app_trans_id"];
+      //const ordersRef = admin.firestore().collection('Orders').doc(orderId);
 
-    // Lấy intent và current page
-    const intent = response.queryResult.match.intent
-      ? response.queryResult.match.intent.displayName
-      : null;
-    const currentPage = response.queryResult.currentPage.displayName;
-
-    // Khởi tạo customPayload
-    let customPayload = null;
-
-    // Kiểm tra và lấy Custom Payload từ agent responses nếu có
-    for (const msg of response.queryResult.responseMessages) {
-      if (msg.payload) {
-        customPayload = msg.payload;
-        break; // Lấy payload đầu tiên và dừng lại
+      try {
+        await ordersRef.update({ status: 'success' });
+        result.return_code = 1;
+        result.return_message = "Cập nhật trạng thái đơn hàng thành công";
+      } catch (dbError) {
+        console.error("Lỗi khi cập nhật đơn hàng trong Firestore:", dbError);
+        result.return_code = 0;
+        result.return_message = "Lỗi khi cập nhật đơn hàng: " + dbError.message;
       }
     }
-
-    // Trích xuất richContent từ customPayload
-    let formattedRichContent = [];
-    if (customPayload && customPayload.fields && customPayload.fields.richContent && customPayload.fields.richContent.listValue) {
-      const richContentList = customPayload.fields.richContent.listValue.values;
-
-      formattedRichContent = richContentList.map(item => {
-        const optionsList = item.listValue.values[0].structValue.fields.options.listValue.values.map(option => {
-          return {
-            text: option.structValue.fields.text.stringValue // Lấy text từ từng option
-          };
-        });
-
-        return {
-          type: item.listValue.values[0].structValue.fields.type.stringValue,
-          options: optionsList
-        };
-      });
-    }
-
-    // Trả về dữ liệu đã định dạng
-    res.json({
-      messages,
-      matchedIntent: intent,
-      currentPage,
-      customPayload: {
-        richContent: formattedRichContent // Trả về richContent đã định dạng lại
-      }
-    });
-  } catch (error) {
-    console.error('Error detecting intent:', error);
-    res.status(500).send('Error detecting intent');
+  } catch (ex) {
+    console.error("Exception:", ex.message);
+    // Trả lỗi cụ thể cho ZaloPay server
+    result.return_code = 0; // ZaloPay server sẽ callback lại nếu trả mã 0
+    result.return_message = "Lỗi hệ thống: " + ex.message;
   }
+
+  // Trả kết quả về cho ZaloPay server
+  res.json(result);
 });
+
+
+
+
 

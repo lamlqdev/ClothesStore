@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, FlatList, KeyboardAvoidingView, Platform, StyleSheet, Image, TouchableOpacity } from 'react-native';
 import avatarImage from '../../assets/icons/avatar.png';
 import sendIcon from '../../assets/icons/send-100.png';
@@ -6,6 +6,14 @@ import sendIcon from '../../assets/icons/send-100.png';
 const MessageScreen = () => {
   const [query, setQuery] = useState('');
   const [messages, setMessages] = useState([]);
+  const [currentPage, setCurrentPage] = useState(''); // lưu page hiện tại
+  const [sessionId, setSessionId] = useState(''); // lưu sessionId
+
+  useEffect(() => {
+    // Tạo sessionId mới khi lần đầu tiên truy cập
+    const newSessionId = Math.random().toString(36).substring(7);
+    setSessionId(newSessionId);
+  }, []);
 
   const sendMessage = async (message = query) => {
     if (!message.trim()) return;
@@ -16,20 +24,24 @@ const MessageScreen = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ query: message }),
+        body: JSON.stringify({ query: message, currentPage, sessionId }), // gửi currentPage và sessionId
       });
       const data = await response.json();
 
-      const botMessage = {
+      // Cập nhật currentPage với giá trị mới từ phản hồi của bot
+      setCurrentPage(data.currentPage || '');
+
+      // Tạo một mảng các tin nhắn từ bot
+      const botMessages = data.messages.map((text) => ({
         sender: 'bot',
-        text: data.messages[0][0],
-        options: data.customPayload?.richContent[0]?.options || [], // Lấy các option nếu có
-      };
+        text,
+        options: data.customPayload?.richContent[0]?.options || [],
+      }));
 
       setMessages((prevMessages) => [
         ...prevMessages,
         { sender: 'user', text: message },
-        botMessage,
+        ...botMessages,
       ]);
       setQuery('');
     } catch (error) {
@@ -38,8 +50,8 @@ const MessageScreen = () => {
   };
 
   const handleOptionPress = (optionText) => {
-    setQuery(optionText); // Cập nhật query với nội dung của option
-    sendMessage(optionText); // Gửi tin nhắn ngay lập tức
+    setQuery(optionText);
+    sendMessage(optionText);
   };
 
   const renderMessage = ({ item }) => {
@@ -50,14 +62,13 @@ const MessageScreen = () => {
         <View style={[styles.messageBubble, isUser ? styles.userMessage : styles.botMessage]}>
           <Text style={{ color: isUser ? 'white' : 'black' }}>{item.text}</Text>
         </View>
-        {/* Render buttons if there are options */}
         {!isUser && item.options && item.options.length > 0 && (
           <View style={styles.optionsContainer}>
             {item.options.map((option, index) => (
               <TouchableOpacity
                 key={index}
                 style={styles.optionButton}
-                onPress={() => handleOptionPress(option.text)} // Gọi hàm handleOptionPress khi nhấn vào option
+                onPress={() => handleOptionPress(option.text)}
               >
                 <Text style={styles.optionText}>{option.text}</Text>
               </TouchableOpacity>
@@ -170,5 +181,7 @@ const styles = StyleSheet.create({
 });
 
 export default MessageScreen;
+
+
 
 

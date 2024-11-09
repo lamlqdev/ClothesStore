@@ -11,15 +11,9 @@ import Icon from 'react-native-vector-icons/MaterialIcons';
 import Header from '../components/Header';
 import { useNavigation } from '@react-navigation/native';
 
-interface ContactItem {
-    icon: string;
-    title: string;
-    content: string;
-}
-
-const contactItems: ContactItem[] = [
+const contactItems = [
     { icon: 'headset-mic', title: 'Customer Service', content: 'Our customer service is available 24/7' },
-    { icon: 'whatsapp', title: 'WhatsApp', content: '0943738650' },
+    { icon: 'phone-android', title: 'WhatsApp', content: '0943738650' },
     { icon: 'language', title: 'Website', content: 'www.example.com' },
     { icon: 'facebook', title: 'Facebook', content: 'facebook.com/example' },
     { icon: 'history', title: 'Twitter', content: 'twitter.com/example' },
@@ -27,10 +21,10 @@ const contactItems: ContactItem[] = [
 ];
 
 const ContactUsScreen = () => {
-    const [expandedItem, setExpandedItem] = useState<string | null>(null);
+    const [expandedItem, setExpandedItem] = useState(null);
     const navigation = useNavigation();
 
-    const toggleItem = (title: string) => {
+    const toggleItem = (title) => {
         setExpandedItem(expandedItem === title ? null : title);
     };
 
