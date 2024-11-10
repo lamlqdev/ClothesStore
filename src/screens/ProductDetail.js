@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, StatusBar, ActivityIndicator } from 'react-native';
+import { StyleSheet, Text, View, StatusBar, ActivityIndicator, FlatList, SafeAreaView } from 'react-native';
 import { Colors } from '../constants/colors';
 import Slider from '../components/Slider';
 import ProductInfor from '../components/ProductInfor';
@@ -14,6 +14,7 @@ const ProductDetail = ({ route, navigation }) => {
   const [product, setProduct] = useState(null);
   const [wishlist, setWishlist] = useState([]);
   const [selectedSize, setSelectedSize] = useState(null);
+  const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -36,6 +37,24 @@ const ProductDetail = ({ route, navigation }) => {
         }
       } catch (error) {
         console.error('Error fetching product:', error);
+      }
+    };
+
+    const fetchReviews = async () => {
+      try {
+        const reviewsSnapshot = await firestore()
+          .collection('Reviews')
+          .where('productId', '==', productId)
+          .get();
+
+        const reviewsData = reviewsSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+
+        setReviews(reviewsData);
+      } catch (error) {
+        console.error('Error fetching reviews:', error);
       } finally {
         setLoading(false);
       }
@@ -60,6 +79,7 @@ const ProductDetail = ({ route, navigation }) => {
 
     fetchUserId();
     fetchProduct();
+    fetchReviews();
     if (userId) {
       fetchWishlist();
     }
@@ -88,22 +108,39 @@ const ProductDetail = ({ route, navigation }) => {
   }
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
       {product && (
         <>
-          <Slider
-            images={product.images || []}
-            productId={productId}
-            isWished={wishlist.includes(productId)}
-            toggleWishlist={toggleWishlist}
+          <FlatList
+            data={reviews}
+            ListHeaderComponent={() => (
+              <>
+                <Slider
+                  images={product.images || []}
+                  productId={productId}
+                  isWished={wishlist.includes(productId)}
+                  toggleWishlist={toggleWishlist}
+                />
+                <ProductInfor product={product} />
+                <SelectSize productId={productId} onSelectSize={setSelectedSize} />
+                <Text style={styles.reviewHeader}>Reviews:</Text>
+              </>
+            )}
+            renderItem={({ item }) => (
+              <View style={styles.reviewItem}>
+                <Text style={styles.reviewText}>Rating: {item.rating} ★</Text>
+                <Text style={styles.reviewText}>{item.comment}</Text>
+              </View>
+            )}
+            keyExtractor={(item) => item.id}
           />
-          <ProductInfor product={product} />
-          <SelectSize productId={productId} onSelectSize={setSelectedSize} />
-          <AddToCartButton productId={productId} selectedSize={selectedSize} />
+          <View style={styles.addToCartContainer}>
+            <AddToCartButton productId={productId} selectedSize={selectedSize} />
+          </View>
         </>
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -112,6 +149,28 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: Colors.White,
   },
+  reviewHeader: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginVertical: 10,
+  },
+  reviewItem: {
+    padding: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: Colors.LightGray,
+  },
+  reviewText: {
+    fontSize: 16,
+  },
+  addToCartContainer: {
+    position: 'absolute',
+    bottom: 0,
+    width: '100%',
+    backgroundColor: Colors.White,
+    paddingVertical: 10,
+  },
 });
 
 export default ProductDetail;
+
+

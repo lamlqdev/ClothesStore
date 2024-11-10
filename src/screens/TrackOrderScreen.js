@@ -51,6 +51,7 @@ const TrackOrderScreen = ({navigation}) => {
 
   const route = useRoute();
   const { order } = route.params;
+  console.log("Received Order:", order);
   const handleTrackOrder = (item) => {
     console.log('Tracking order for:', item.productName);
 };

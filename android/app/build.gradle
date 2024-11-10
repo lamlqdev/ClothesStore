@@ -109,8 +109,11 @@ android {
     }
 }
 repositories {
-        mavenCentral()
+    mavenCentral()
+    flatDir{
+        dirs 'libs'
     }
+}
 dependencies {
     // The version of react-native is set by the React Native Gradle Plugin
     implementation("com.facebook.react:react-android")
@@ -131,5 +134,9 @@ dependencies {
 
     implementation 'com.facebook.android:facebook-android-sdk:[8,9)'
     implementation 'com.google.firebase:firebase-auth'
+    //implementation fileTree(dir: 'libs', include: ['*.aar'])
+
+    //implementation(name: 'zpdk-release-v3.1', ext: 'aar')
+    implementation files('libs/zpdk-release-v3.1.aar')
 
 }

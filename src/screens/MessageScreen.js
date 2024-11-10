@@ -11,7 +11,6 @@ const MessageScreen = () => {
   const [messages, setMessages] = useState([]);
   const [currentPage, setCurrentPage] = useState(''); // lưu page hiện tại
   const [sessionId, setSessionId] = useState(''); // lưu sessionId
-  const navigation = useNavigation();
 
   useEffect(() => {
     // Tạo sessionId mới khi lần đầu tiên truy cập

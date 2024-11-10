@@ -15,6 +15,7 @@
   "main": "index.js",
   "dependencies": {
     "@google-cloud/dialogflow-cx": "^4.8.0",
+    "crypto-js": "^4.2.0",
     "firebase-admin": "^12.6.0",
     "firebase-functions": "^6.0.1"
   },

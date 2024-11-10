@@ -1,6 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback  } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet, Modal, Image, TextInput } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 import CheckBox from '@react-native-community/checkbox';
@@ -22,67 +23,76 @@ const CartScreen = ({ navigation }) => {
       const id = await AsyncStorage.getItem('userId');
       setUserId(id);
     };
-
-    const unsubscribe = firestore()
-      .collection('Cart')
-      .where('userId', '==', userId)
-      .onSnapshot(snapshot => {
-        if (snapshot.empty) {
-          console.log("No items in the cart");
-          setLoading(false);
-          return;
-        }
-        const cartData = snapshot.docs.map(async (doc) => {
-          const cartItem = doc.data();
-          const productDoc = await firestore()
-            .collection('Products')
-            .doc(cartItem.productId)
-            .get();
-          const productData = productDoc.exists ? productDoc.data() : null;
-
-          const productTypeDocs = await firestore()
-            .collection('ProductType')
-            .where('productId', '==', cartItem.productId)
-            .get();
-
-          const productTypeData = productTypeDocs.docs.find(typeDoc => {
-            const sizes = typeDoc.data().size;
-            return sizes && sizes.includes(cartItem.size);
-          });
-
-          if (!productTypeData || !productData) {
-            console.warn('No product or product type found:', cartItem.productId, cartItem.size);
-            return null;
-          }
-
-          const productTypeInfo = productTypeData.data();
-
-          return {
-            cartId: doc.id,
-            product: productData,
-            size: cartItem.size,
-            quantity: cartItem.quantity,
-            stock: productTypeInfo.quantity,
-            price: productData.price,
-          };
-        });
-
-        Promise.all(cartData).then(items => {
-          setCartItems(items.filter(item => item !== null));
-          setLoading(false);
-        }).catch(error => {
-          console.error('Error loading cart items: ', error);
-          setLoading(false);
-        });
-      }, (error) => {
-        console.error("Error in onSnapshot: ", error);
-        setLoading(false);
-      });
-
+  
     fetchUserId();
-
-    return () => unsubscribe(); // Hủy đăng ký khi component unmount
-  }, [userId]);
+  }, []);
+  
+  useFocusEffect(
+    useCallback(() => {
+      if (!userId) return; // Đảm bảo userId có giá trị trước khi tiếp tục
+  
+      const unsubscribe = firestore()
+        .collection('Cart')
+        .where('userId', '==', userId)
+        .onSnapshot(snapshot => {
+          if (snapshot.empty) {
+            console.log("No items in the cart");
+            setCartItems([]); // Đảm bảo giao diện cập nhật
+            setLoading(false);
+            return;
+          }
+  
+          const cartData = snapshot.docs.map(async (doc) => {
+            const cartItem = doc.data();
+            const productDoc = await firestore()
+              .collection('Products')
+              .doc(cartItem.productId)
+              .get();
+            const productData = productDoc.exists ? productDoc.data() : null;
+  
+            const productTypeDocs = await firestore()
+              .collection('ProductType')
+              .where('productId', '==', cartItem.productId)
+              .get();
+  
+            const productTypeData = productTypeDocs.docs.find(typeDoc => {
+              const sizes = typeDoc.data().size;
+              return sizes && sizes.includes(cartItem.size);
+            });
+  
+            if (!productTypeData || !productData) {
+              console.warn('No product or product type found:', cartItem.productId, cartItem.size);
+              return null;
+            }
+  
+            const productTypeInfo = productTypeData.data();
+  
+            return {
+              cartId: doc.id,
+              product: productData,
+              size: cartItem.size,
+              quantity: cartItem.quantity,
+              stock: productTypeInfo.quantity,
+              price: productData.price,
+            };
+          });
+  
+          Promise.all(cartData).then(items => {
+            setCartItems(items.filter(item => item !== null));
+            setLoading(false);
+          }).catch(error => {
+            console.error('Error loading cart items: ', error);
+            setLoading(false);
+          });
+        }, (error) => {
+          console.error("Error in onSnapshot: ", error);
+          setLoading(false);
+        });
+  
+      return () => unsubscribe(); // Hủy đăng ký khi component unmount
+    }, [userId])
+  );
+  
 
   const handleQuantityChange = (cartId, newQuantity, stock) => {
     if (newQuantity < 1 || newQuantity > stock) {
@@ -185,8 +195,10 @@ const CartScreen = ({ navigation }) => {
   };
 
   const calculateTotal = () => {
-    return selectedItems.reduce((total, item) => total + item.price * item.quantity, 0).toFixed(2);
+    const total = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    return total % 1 === 0 ? total.toString() : total.toFixed(2);
   };
+  
 
   const renderCartItem = ({ item }) => (
     <Swipeable

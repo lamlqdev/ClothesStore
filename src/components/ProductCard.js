@@ -14,7 +14,7 @@ const ProductCard = ({ item, onPress, isWished, onWishlistToggle }) => {
             <Text style={styles.productRatingText}>{item.rating}</Text>
           </View>
         </View>
-        <Text style={styles.productPrice}>{item.price}</Text>
+        <Text style={styles.productPrice}>${item.price}</Text>
       </TouchableOpacity>
       <TouchableOpacity style={styles.wishlistIcon} onPress={onWishlistToggle}>
         <View style={[styles.wishlistCircle, isWished && styles.wishedCircle]}>
@@ -57,6 +57,7 @@ const styles = StyleSheet.create({
   productPrice: {
     fontSize: 14,
     color: '#555',
+    fontWeight: 'bold'
   },
   productRating: {
     flexDirection: 'row',
