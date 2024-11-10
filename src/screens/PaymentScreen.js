@@ -104,9 +104,11 @@ const PaymentScreen = () => {
                 appTransId: appTransId, // Use the same appTransId
                 products: selectedProducts.map(product => ({
                     productId: product.product.productId,
-                    name: product.product.name,
+                    productName: product.product.name,
                     quantity: product.quantity,
                     price: product.price,
+                    size: product.size,
+                    productImage: product.product.image
                 })),
             };
             console.log('Saving order to Firestore:', orderData);
