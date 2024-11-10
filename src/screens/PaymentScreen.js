@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert, NativeEventEmitter } from 'react-native';
+import { View, Text, TouchableOpacity, FlatList, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Icon2 from 'react-native-vector-icons/Ionicons';
 import Icon3 from 'react-native-vector-icons/FontAwesome6';
@@ -7,7 +7,8 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 import firestore from '@react-native-firebase/firestore';
-import CryptoJS from 'crypto-js';
+import WebView from 'react-native-webview';
+import { createPayment, executePayment } from '../apis/paypalApi';
 
 const PaymentScreen = () => {
     const navigation = useNavigation();
@@ -15,9 +16,13 @@ const PaymentScreen = () => {
     const { selectedProducts, selectedAddress, selectedPhone } = route.params || {};
     const [selectedOption, setSelectedOption] = useState(null);
     const [userId, setUserId] = useState(null);
+    const [approvalUrl, setApprovalUrl] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [paymentId, setPaymentId] = useState(null);
 
     const paymentOptions = [
-        { id: 'vnpay', name: 'VNPay', icon: <Icon name="paypal" size={24} color="#0070BA" /> },
+        { id: 'paypal', name: 'Paypal', icon: <Icon name="paypal" size={24} color="#0070BA" /> },
         { id: 'momo', name: 'MoMo', icon: <Icon name="credit-card" size={24} color="purple" /> },
         { id: 'zalopay', name: 'Zalo Pay', icon: <Icon3 name="google-pay" size={24} color="#4285F4" /> },
     ];
@@ -28,11 +33,6 @@ const PaymentScreen = () => {
             setUserId(id);
         };
         fetchUserId();
-
-        // Lắng nghe sự kiện từ VNPAY (nếu cần)
-        //const eventEmitter = new NativeEventEmitter(VnpayMerchantModule);
-        //const listener = eventEmitter.addListener('PaymentBack', handlePaymentResult);
-        return () => listener.remove();
     }, []);
 
     const handleConfirmPayment = async () => {
@@ -40,92 +40,76 @@ const PaymentScreen = () => {
             Alert.alert('Payment Option Required', 'Please select a payment option.');
             return;
         }
-
-        if (selectedOption === 'vnpay') {
-            await handleVnpayPayment();
-        } else if (selectedOption === 'momo') {
-            await handleMomoPayment();
-        } else {
-            Alert.alert('Unsupported Payment Option', 'Currently only VNPay and MoMo are supported.');
-        }
-    };
-
-    const handleVnpayPayment = async () => {
-        const paymentUrl = 'https://sandbox.vnpayment.vn/paymentv2/vpcpay.html';
-        const scheme = 'clothesstorepay';
-
+        setLoading(true);
         try {
-            await VnpayMerchant.show({
-                isSandbox: true,
-                paymentUrl,
-                scheme,
-                title: "VNPAY Payment",
-                tmn_code: "vnpay_tmn_code",  // Mã TMN
-            });
-        } catch (error) {
-            console.error('Payment error:', error);
-            Alert.alert('Thanh toán không thành công');
-        }
-    };
-
-    const createSignature = (data, secretKey) => {
-        const hmacData = Object.entries(data)
-            .map(([key, value]) => `${key}=${value}`)
-            .join('&');
-
-        return CryptoJS.HmacSHA256(hmacData, secretKey).toString();
-    };
-
-    const handleMomoPayment = async () => {
-        const partnerCode = "YOUR_PARTNER_CODE";  // Nhập Partner Code
-        const accessKey = "YOUR_ACCESS_KEY";      // Nhập Access Key
-        const secretKey = "YOUR_SECRET_KEY";      // Nhập Secret Key
-        const orderId = new Date().getTime().toString();
-        const amount = selectedProducts.reduce((sum, product) => sum + product.price * product.quantity, 0).toFixed(2);
-        const orderInfo = "Thanh toán bằng MoMo";
-        const returnUrl = "https://your-return-url.com"; // Đường dẫn trả về
-        const notifyUrl = "https://your-notify-url.com"; // Đường dẫn thông báo
-
-        const data = {
-            partnerCode,
-            accessKey,
-            requestId: orderId,
-            amount,
-            orderId,
-            orderInfo,
-            returnUrl,
-            notifyUrl,
-            extraData: "", // Thông tin bổ sung nếu cần
-        };
-
-        const signature = createSignature(data, secretKey);
-        data.signature = signature;
-
-        try {
-            const response = await fetch('https://test-payment.momo.vn/gw_payment/transactionProcessor', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json; charset=UTF-8',
-                },
-                body: JSON.stringify(data),
-            });
-
-            const result = await response.json();
-            if (result && result.payUrl) {
-                // Mở URL thanh toán MoMo
-                Linking.openURL(result.payUrl);
+            if (selectedOption === 'paypal') {
+                await handlePaypalPayment();
+            } else {
+                Alert.alert('Unsupported Payment Option', 'Currently only PayPal is supported in WebView.');
             }
-        } catch (error) {
-            console.error('MoMo Payment error:', error);
-            Alert.alert('Thanh toán MoMo không thành công');
+        } finally {
+            setLoading(false);
         }
     };
 
-    const handlePaymentResult = async (e) => {
-        if (e.resultCode === 97) {  // 97: Thanh toán thành công
-            const totalAmount = selectedProducts.reduce((sum, product) => sum + product.price * product.quantity, 0).toFixed(2);
+    const handlePaypalPayment = async () => {
+        if (isProcessing) return;
+    
+        setIsProcessing(true);
+        try {
+            const amount = selectedProducts.reduce((sum, product) => sum + (product.price * product.quantity), 0).toFixed(2);
+            const result = await createPayment(amount);
+            
+            const approvalLink = result.links.find(link => link.rel === 'approve');
+            if (!approvalLink) throw new Error('No approval URL found in order response');
+            
+            setApprovalUrl(approvalLink.href);
+            setPaymentId(result.id);
+        } catch (error) {
+            Alert.alert('Payment Error', 'Failed to initialize payment. Please try again or contact support.');
+        } finally {
+            setIsProcessing(false);
+        }
+    };                
 
-            const orderData = {
+    const handleWebViewNavigationStateChange = async (event) => {
+        if (event.url.includes('payment-success')) {
+            try {
+                const captureResult = await captureOrder(paymentId);
+                
+                if (captureResult.status === 'COMPLETED') {
+                    await saveOrderToFirestore(captureResult);
+                    setApprovalUrl(null);
+                    navigation.navigate('PaymentSuccess');
+                } else {
+                    throw new Error('Order capture not completed');
+                }
+            } catch (error) {
+                console.error('Payment Capture Error:', error);
+                Alert.alert('Payment Failed', error.message || 'Unable to complete payment');
+                setApprovalUrl(null);
+                navigation.navigate('Payment');
+            }
+        } else if (event.url.includes('payment-cancel')) {
+            console.log('Payment Cancelled');
+            setApprovalUrl(null);
+            setIsProcessing(false);
+            navigation.navigate('Payment');
+        }
+    };                                     
+
+    const saveOrderToFirestore = async (paymentResult) => {
+        try {
+            console.log('Saving order to Firestore:', paymentResult);
+            
+            const totalAmount = selectedProducts.reduce(
+                (sum, product) => sum + (product.price * product.quantity),
+                0
+            ).toFixed(2);
+
+            const orderDetails = {
+                paymentId: paymentResult.id,
+                paymentStatus: paymentResult.state,
                 address: selectedAddress,
                 phone: selectedPhone,
                 orderStatus: 'Active',
@@ -140,50 +124,65 @@ const PaymentScreen = () => {
                 })),
             };
 
-            await firestore().collection('Orders').add(orderData);
-            navigation.navigate('PaymentSuccess');
-        } else if (e.resultCode === 98) {  // 98: Thanh toán thất bại
-            Alert.alert('Thanh toán thất bại');
+            const docRef = await firestore().collection('Orders').add(orderDetails);
+            console.log('Order saved successfully with ID:', docRef.id);
+        } catch (error) {
+            console.error('Error saving order to Firestore:', error);
+            Alert.alert('Error', 'Failed to save order details. Please contact support.');
         }
-    };
-
-    const handleOptionPress = (optionId) => {
-        setSelectedOption(optionId);
-    };
+    };                
 
     return (
         <View style={styles.container}>
             <Header title="Payment Methods" onBackPress={() => navigation.goBack()} />
 
-            <Text style={styles.paymentOptionsTitle}>Payment Options</Text>
-            <FlatList
-                data={paymentOptions}
-                keyExtractor={(item) => item.id}
-                renderItem={({ item }) => (
+            {isProcessing && (
+                <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#0070BA" />
+                    <Text style={styles.loadingText}>Processing payment...</Text>
+                </View>
+            )}
+
+            {approvalUrl ? (
+                <WebView
+                    source={{ uri: approvalUrl }}
+                    onNavigationStateChange={handleWebViewNavigationStateChange}
+                    startInLoadingState
+                    renderLoading={() => <ActivityIndicator size="large" color="#0070BA" />}
+                />
+            ) : (
+                <>
+                    <Text style={styles.paymentOptionsTitle}>Payment Options</Text>
+                    <FlatList
+                        data={paymentOptions}
+                        keyExtractor={(item) => item.id}
+                        renderItem={({ item }) => (
+                            <TouchableOpacity
+                                style={styles.paymentOption}
+                                onPress={() => setSelectedOption(item.id)}
+                            >
+                                <View style={styles.paymentOptionDetails}>
+                                    {item.icon}
+                                    <Text style={styles.paymentOptionText}>{item.name}</Text>
+                                </View>
+
+                                <Icon2
+                                    name={selectedOption === item.id ? 'radio-button-on' : 'radio-button-off'}
+                                    size={24}
+                                    color={selectedOption === item.id ? '#8B4513' : '#ccc'}
+                                />
+                            </TouchableOpacity>
+                        )}
+                    />
+
                     <TouchableOpacity
-                        style={styles.paymentOption}
-                        onPress={() => handleOptionPress(item.id)}
+                        style={styles.confirmButton}
+                        onPress={handleConfirmPayment}
                     >
-                        <View style={styles.paymentOptionDetails}>
-                            {item.icon}
-                            <Text style={styles.paymentOptionText}>{item.name}</Text>
-                        </View>
-
-                        <Icon2
-                            name={selectedOption === item.id ? 'radio-button-on' : 'radio-button-off'}
-                            size={24}
-                            color={selectedOption === item.id ? '#8B4513' : '#ccc'}
-                        />
+                        <Text style={styles.confirmButtonText}>Confirm Payment</Text>
                     </TouchableOpacity>
-                )}
-            />
-
-            <TouchableOpacity
-                style={styles.confirmButton}
-                onPress={handleConfirmPayment}
-            >
-                <Text style={styles.confirmButtonText}>Confirm Payment</Text>
-            </TouchableOpacity>
+                </>
+            )}
         </View>
     );
 };
@@ -218,10 +217,6 @@ const styles = StyleSheet.create({
         fontSize: 16,
         color: "black",
     },
-    linkText: {
-        color: '#0070BA',
-        fontSize: 16,
-    },
     confirmButton: {
         position: 'absolute',
         bottom: 0,
@@ -238,6 +233,22 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
+    loadingContainer: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(255,255,255,0.8)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 999
+    },
+    loadingText: {
+        marginTop: 10,
+        color: '#0070BA',
+        fontSize: 16
+    }
 });
 
 export default PaymentScreen;

@@ -56,7 +56,7 @@ const AddPhoneScreen = ({ navigation }) => {
   
       Alert.alert('Phone number added successfully');
       setPhoneNumber(''); // Reset trường nhập sau khi thêm số điện thoại
-      navigation.navigate('ChoosePhone');
+      navigation.navigate('ChoosePhone', { refresh: true });
     } catch (error) {
       console.error('Error adding phone number:', error);
       Alert.alert('Failed to add phone number');

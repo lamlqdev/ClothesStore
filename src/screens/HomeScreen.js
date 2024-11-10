@@ -186,20 +186,21 @@ function HomeScreen({ navigation }) {
       <View style={styles.categoryContainer}>
         <View style={styles.categoryHeader}>
           <Text style={styles.sectionTitle}>Category</Text>
-          <TouchableOpacity>
-            <Text style={styles.seeAll}>See all</Text>
-          </TouchableOpacity>
         </View>
-        <View style={styles.categories}>
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categories}
+        >
           {categories.map(category => (
             <TouchableOpacity
               key={category.id}
               style={styles.category}
               onPress={() => {
                 // Truyền cả title và categoryId khi điều hướng sang màn hình tiếp theo
-                navigation.navigate('Category', { 
-                  title: category.name, 
-                  categoryId: category.categoryId  // Truyền categoryId
+                navigation.navigate('Category', {
+                  title: category.name,
+                  categoryId: category.categoryId // Truyền categoryId
                 });
               }}
             >
@@ -207,9 +208,8 @@ function HomeScreen({ navigation }) {
               <Text style={styles.categoryText}>{category.name}</Text>
             </TouchableOpacity>
           ))}
-        </View>
+        </ScrollView>
       </View>
-
 
       <View style={styles.flashSaleContainer}>
         <View style={styles.flashSaleHeader}>
@@ -388,18 +388,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: 'red'
   },
-  seeAll: {
-    color: 'brown',
-    fontSize: 16,
-  },
   categories: {
     flexDirection: 'row',
     marginTop: 16,
-    justifyContent: 'space-around',
+    paddingHorizontal: 10,
   },
   category: {
     alignItems: 'center',
-    marginRight: 20
+    width: 70,
+    marginHorizontal: 10,
   },
   categoryText: {
     marginTop: 8,

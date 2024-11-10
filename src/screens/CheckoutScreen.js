@@ -24,6 +24,37 @@ const CheckoutScreen = () => {
     fetchUserId();
   }, []);
 
+  useFocusEffect(
+    useCallback(() => {
+      const fetchDefaultInfo = async () => {
+        if (userId && !route.params?.selectedAddress && !route.params?.selectedPhone) {
+          const userDoc = await firestore().collection('users').doc(userId).get();
+          if (userDoc.exists) {
+            const userData = userDoc.data();
+            setAddress(userData.defaultAddress || null);
+            setPhone(userData.defaultPhone || null);
+          }
+        }
+      };
+
+      // Ưu tiên địa chỉ và số điện thoại từ route.params cho lần thanh toán hiện tại
+      if (route.params?.selectedAddress) {
+        setAddress(route.params.selectedAddress);
+      }
+      if (route.params?.selectedPhone) {
+        setPhone(route.params.selectedPhone);
+      }
+
+      fetchDefaultInfo();
+
+      // Giữ nguyên danh sách sản phẩm đã chọn
+      const products = route.params?.selectedProducts || [];
+      if (products.length > 0) {
+        setSelectedProducts(products);
+      }
+    }, [userId, route.params])
+  );
+
   useEffect(() => {
     const calculateTotal = () => {
       if (selectedProducts && selectedProducts.length > 0) {
@@ -40,9 +71,9 @@ const CheckoutScreen = () => {
       Alert.alert('Missing Information', 'Please make sure to select both an address and phone number.');
       return;
     }
-  
+
     navigation.navigate('Payment', { selectedProducts, selectedAddress: address, selectedPhone: phone });
-  };  
+  };
 
   useFocusEffect(
     useCallback(() => {
@@ -71,7 +102,10 @@ const CheckoutScreen = () => {
         <Text style={styles.itemName}>{item.product.name}</Text>
         <Text style={styles.itemSize}>Size: {item.size}</Text>
         <Text style={styles.itemQuantity}>Quantity: {item.quantity}</Text>
-        <Text style={styles.itemPrice}>${(item.price * item.quantity).toFixed(2)}</Text>
+        <Text style={styles.itemPrice}>${(item.price).toFixed(2)}</Text>
+      </View>
+      <View style={styles.totalContainer}>
+        <Text style={styles.itemPrice}>Total: ${(item.price * item.quantity).toFixed(2)}</Text>
       </View>
     </View>
   );
@@ -187,6 +221,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderColor: '#e0e0e0',
     alignItems: 'center',
+    justifyContent: 'space-between',
   },
   itemImage: {
     width: 80,
@@ -213,6 +248,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginTop: 8,
     fontWeight: 'bold',
+  },
+  totalContainer: {
+    justifyContent: 'center',
+    alignItems: 'flex-end',
   },
   totalRow: {
     flexDirection: 'row',

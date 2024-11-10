@@ -2,4 +2,5 @@
     <string name="app_name">clothesstore</string>
     <string name="facebook_app_id">8706612509350464</string>
     <string name="facebook_client_token">ad15cc7a76b0b897862253acfd03a96f</string>
+    <string name="google_maps_key">AIzaSyAUqCJy9-5sr5nH9_CYfTlsLIqV-Ua56KA</string>
 </resources>

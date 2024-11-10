@@ -33,6 +33,7 @@ local.properties
 .cxx/
 *.keystore
 !debug.keystore
+config.js
 
 # node.js
 #
@@ -72,3 +73,4 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+functions/fashionstore-3d195-01337bdd50ae.json

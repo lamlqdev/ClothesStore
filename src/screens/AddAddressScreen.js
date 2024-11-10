@@ -1,9 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
 import axios from 'axios';
 import firestore from '@react-native-firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
+import Config from 'react-native-config';
+import MapView, { Marker } from 'react-native-maps';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 
 const AddAddressScreen = ({ navigation }) => {
@@ -14,7 +16,17 @@ const AddAddressScreen = ({ navigation }) => {
   const [selectedProvince, setSelectedProvince] = useState(null);
   const [selectedCity, setSelectedCity] = useState(null);
   const [selectedWard, setSelectedWard] = useState(null);
+  const [selectedProvinceData, setSelectedProvinceData] = useState(null);
+  const [selectedCityData, setSelectedCityData] = useState(null);
+  const [selectedWardData, setSelectedWardData] = useState(null);
   const [userId, setUserId] = useState(null);
+  const [region, setRegion] = useState({
+    latitude: 21.0285,
+    longitude: 105.8542,
+    latitudeDelta: 0.0922,
+    longitudeDelta: 0.0421,
+  });
+  const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -27,13 +39,15 @@ const AddAddressScreen = ({ navigation }) => {
         const response = await axios.get('https://esgoo.net/api-tinhthanh/1/0.htm');
         if (response.data.error === 0) {
           setProvinces(response.data.data);
-          setSelectedProvince(response.data.data[0].id);
+          if (response.data.data.length > 0) {
+            setSelectedProvince(response.data.data[0].id);
+            setSelectedProvinceData(response.data.data[0]);
+          }
         }
       } catch (error) {
         console.error('Error fetching provinces:', error);
       }
     };
-
     fetchUserId();
     fetchProvinces();
   }, []);
@@ -45,7 +59,10 @@ const AddAddressScreen = ({ navigation }) => {
           const response = await axios.get(`https://esgoo.net/api-tinhthanh/2/${selectedProvince}.htm`);
           if (response.data.error === 0) {
             setCities(response.data.data);
-            setSelectedCity(response.data.data[0]?.id);
+            if (response.data.data.length > 0) {
+              setSelectedCity(response.data.data[0].id);
+              setSelectedCityData(response.data.data[0]);
+            }
           }
         } catch (error) {
           console.error('Error fetching cities:', error);
@@ -62,7 +79,10 @@ const AddAddressScreen = ({ navigation }) => {
           const response = await axios.get(`https://esgoo.net/api-tinhthanh/3/${selectedCity}.htm`);
           if (response.data.error === 0) {
             setWards(response.data.data);
-            setSelectedWard(response.data.data[0]?.id);
+            if (response.data.data.length > 0) {
+              setSelectedWard(response.data.data[0].id);
+              setSelectedWardData(response.data.data[0]);
+            }
           }
         } catch (error) {
           console.error('Error fetching wards:', error);
@@ -72,21 +92,68 @@ const AddAddressScreen = ({ navigation }) => {
     }
   }, [selectedCity]);
 
+  const getCoordinates = async (address) => {
+    if (!address) return;
+    setIsLoading(true);
+
+    try {
+      // Thêm "Việt Nam" vào cuối địa chỉ để tăng độ chính xác
+      const fullAddress = `${address}, Việt Nam`;
+      console.log('Full Address:', fullAddress);
+      
+      const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+        params: {
+          address: fullAddress,
+          key: Config.GOOGLE_API_KEY,
+          language: 'vi', // Thêm parameter ngôn ngữ tiếng Việt
+          region: 'vn', // Thêm parameter region để ưu tiên kết quả ở Việt Nam
+        },
+      });
+
+      if (response.data.results && response.data.results.length > 0) {
+        const location = response.data.results[0].geometry.location;
+        setRegion({
+          latitude: location.lat,
+          longitude: location.lng,
+          latitudeDelta: 0.01, // zoom gần hơn
+          longitudeDelta: 0.01,
+        });
+      } else {
+        Alert.alert('No location found for this address');
+        console.log('Google Maps API response:', response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching coordinates:', error);
+      Alert.alert('An error occurred while searching for location.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSearchLocation = () => {
+    if (!street || !selectedProvinceData || !selectedCityData || !selectedWardData) {
+      Alert.alert('Please enter full address information');
+      return;
+    }
+
+    const fullAddress = `${street}, ${selectedWardData.full_name}, ${selectedCityData.full_name}, ${selectedProvinceData.full_name}`;
+    console.log('Searching for address:', fullAddress); 
+    getCoordinates(fullAddress);
+  };
+
   const handleAddAddress = async () => {
-    if (street === '') {
+    if (!street) {
       Alert.alert('Please enter street');
       return;
     }
 
-    const selectedProvinceName = provinces.find(p => p.id === selectedProvince)?.full_name || '';
-    const selectedCityName = cities.find(c => c.id === selectedCity)?.full_name || '';
-    const selectedWardName = wards.find(w => w.id === selectedWard)?.full_name || '';
-
     const newAddress = {
-      street: street,
-      ward: selectedWardName,
-      city: selectedCityName,
-      province: selectedProvinceName
+      street,
+      ward: selectedWardData?.full_name,
+      city: selectedCityData?.full_name,
+      province: selectedProvinceData?.full_name,
+      latitude: region.latitude,
+      longitude: region.longitude,
     };
 
     try {
@@ -115,7 +182,8 @@ const AddAddressScreen = ({ navigation }) => {
   return (
     <View style={styles.container}>
       <Header title="Add Address" onBackPress={() => navigation.goBack()} />
-      <View style={styles.inputContainer}>
+
+      <ScrollView style={styles.inputContainer}>
         <Text style={styles.label}>Street:</Text>
         <TextInput
           style={styles.input}
@@ -123,43 +191,81 @@ const AddAddressScreen = ({ navigation }) => {
           onChangeText={setStreet}
           placeholder="Enter house number and street name"
         />
+        
         <Text style={styles.label}>Province:</Text>
-        <Picker
-          selectedValue={selectedProvince}
-          onValueChange={(itemValue) => setSelectedProvince(itemValue)}
-          style={styles.picker}
-        >
-          {provinces.map((province) => (
-            <Picker.Item key={province.id} label={province.full_name} value={province.id} />
-          ))}
-        </Picker>
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={selectedProvince}
+            onValueChange={(itemValue, itemIndex) => {
+              setSelectedProvince(itemValue);
+              setSelectedProvinceData(provinces[itemIndex]);
+            }}
+            style={styles.picker}
+          >
+            {provinces.map((province) => (
+              <Picker.Item key={province.id} label={province.full_name} value={province.id} />
+            ))}
+          </Picker>
+        </View>
 
-        <Text style={styles.label}>City/District:</Text>
-        <Picker
-          selectedValue={selectedCity}
-          onValueChange={(itemValue) => setSelectedCity(itemValue)}
-          style={styles.picker}
-        >
-          {cities.map((city) => (
-            <Picker.Item key={city.id} label={city.full_name} value={city.id} />
-          ))}
-        </Picker>
+        <Text style={styles.label}>City:</Text>
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={selectedCity}
+            onValueChange={(itemValue, itemIndex) => {
+              setSelectedCity(itemValue);
+              setSelectedCityData(cities[itemIndex]);
+            }}
+            style={styles.picker}
+          >
+            {cities.map((city) => (
+              <Picker.Item key={city.id} label={city.full_name} value={city.id} />
+            ))}
+          </Picker>
+        </View>
 
         <Text style={styles.label}>Ward:</Text>
-        <Picker
-          selectedValue={selectedWard}
-          onValueChange={(itemValue) => setSelectedWard(itemValue)}
-          style={styles.picker}
-        >
-          {wards.map((ward) => (
-            <Picker.Item key={ward.id} label={ward.full_name} value={ward.id} />
-          ))}
-        </Picker>
+        <View style={styles.pickerContainer}>
+          <Picker
+            selectedValue={selectedWard}
+            onValueChange={(itemValue, itemIndex) => {
+              setSelectedWard(itemValue);
+              setSelectedWardData(wards[itemIndex]);
+            }}
+            style={styles.picker}
+          >
+            {wards.map((ward) => (
+              <Picker.Item key={ward.id} label={ward.full_name} value={ward.id} />
+            ))}
+          </Picker>
+        </View>
 
-        <TouchableOpacity style={styles.button} onPress={handleAddAddress}>
+        <TouchableOpacity 
+          style={[styles.searchButton, isLoading && styles.disabledButton]}
+          onPress={handleSearchLocation}
+          disabled={isLoading}
+        >
+          <Text style={styles.buttonText}>
+            {isLoading ? 'Searching...' : 'Search location on map'}
+          </Text>
+        </TouchableOpacity>
+
+        <MapView
+          style={styles.map}
+          region={region}
+          onRegionChangeComplete={setRegion}
+        >
+          <Marker coordinate={{ latitude: region.latitude, longitude: region.longitude }} />
+        </MapView>
+
+        <TouchableOpacity 
+          style={[styles.button, isLoading && styles.disabledButton]}
+          onPress={handleAddAddress}
+          disabled={isLoading}
+        >
           <Text style={styles.buttonText}>Add Address</Text>
         </TouchableOpacity>
-      </View>
+      </ScrollView>
     </View>
   );
 };
@@ -167,44 +273,65 @@ const AddAddressScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    padding: 20,
-    backgroundColor: 'white'
+    backgroundColor: '#fff',
   },
   inputContainer: {
-    marginVertical: 20,
+    padding: 20,
   },
   label: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    marginBottom: 5,
-    color: 'black'
+    fontSize: 16,
+    fontWeight: '600',
+    marginBottom: 8,
+    color: '#333',
   },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    padding: 10,
-    borderRadius: 5,
-    marginBottom: 15,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 16,
+    fontSize: 16,
+    backgroundColor: '#fff',
+  },
+  pickerContainer: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    marginBottom: 16,
+    backgroundColor: '#fff',
+    overflow: 'hidden',
   },
   picker: {
     height: 50,
     width: '100%',
-    marginBottom: 15,
-    borderWidth: 1,
-    borderColor: '#007BFF',
-    backgroundColor: 'gray',
-    borderRadius: 65,
-    color: 'white'
   },
   button: {
     backgroundColor: 'brown',
-    padding: 15,
-    borderRadius: 5,
+    padding: 16,
+    borderRadius: 8,
     alignItems: 'center',
+    marginBottom: 25,
+  },
+  searchButton: {
+    backgroundColor: '#2196F3',
+    padding: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 16,
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  disabledButton: {
+    opacity: 0.6,
+  },
+  map: {
+    width: '100%',
+    height: 300,
+    borderRadius: 8,
+    marginBottom: 16,
   },
 });
 

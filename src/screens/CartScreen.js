@@ -226,7 +226,7 @@ const CartScreen = ({ navigation }) => {
         </View>
       </View>
     </Swipeable>
-  );  
+  );
 
   if (loading) {
     return <Text>Loading...</Text>;

@@ -3,9 +3,19 @@ import React from 'react'
 import { NavigationContainer } from '@react-navigation/native';
 import AppNavigator from './src/navigation/AppNavigator';
 
+const linking = {
+  prefixes: ["clothesstore://"],
+  config: {
+      screens: {
+          PaymentSuccess: "payment-success",
+          Payment: "payment-cancel",
+      },
+  },
+};
+
 const App = () => {
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <AppNavigator />
     </NavigationContainer>
   )
