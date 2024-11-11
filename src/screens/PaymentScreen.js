@@ -84,8 +84,8 @@ const PaymentScreen = () => {
         try {
             if (selectedOption === 'paypal') {
                 await handlePaypalPayment();
-            } else {
-                Alert.alert('Unsupported Payment Option', 'Currently only PayPal is supported in WebView.');
+            } else if (selectedOption === 'momo') {
+                Alert.alert('Unsupported Momo Option', 'Currently PayPal and ZaloPay is supported.');
             }
         } finally {
             setLoading(false);
@@ -98,8 +98,6 @@ const PaymentScreen = () => {
                 if (!paymentResult.success) {
                     Alert.alert('Payment Failed', 'Failed to initiate payment. Please try again.');
                 }
-            } else {
-                Alert.alert('Payment Option', 'This option is not implemented yet.');
             }
         };
     }

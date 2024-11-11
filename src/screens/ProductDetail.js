@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { StyleSheet, Text, View, StatusBar, ActivityIndicator, FlatList, SafeAreaView } from 'react-native';
+import { StyleSheet, Text, View, StatusBar, ActivityIndicator, FlatList, ScrollView } from 'react-native';
 import { Colors } from '../constants/colors';
 import Slider from '../components/Slider';
 import ProductInfor from '../components/ProductInfor';
@@ -14,6 +14,7 @@ const ProductDetail = ({ route, navigation }) => {
   const [product, setProduct] = useState(null);
   const [wishlist, setWishlist] = useState([]);
   const [selectedSize, setSelectedSize] = useState(null);
+  const [sizeList, setSizeList] = useState([]);
   const [reviews, setReviews] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,8 +32,11 @@ const ProductDetail = ({ route, navigation }) => {
           .get();
 
         if (productSnapshot.exists) {
-          setProduct(productSnapshot.data());
-        } else {
+          const productData = productSnapshot.data();
+          setProduct(productData);
+          setSizeList(productData.sizelist || []); // cập nhật sizeList
+        }
+        else {
           console.error('Product not found');
         }
       } catch (error) {
@@ -108,39 +112,42 @@ const ProductDetail = ({ route, navigation }) => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
-      {product && (
+    <FlatList
+      style={styles.container}
+      data={reviews}
+      ListHeaderComponent={() => (
         <>
-          <FlatList
-            data={reviews}
-            ListHeaderComponent={() => (
-              <>
-                <Slider
-                  images={product.images || []}
-                  productId={productId}
-                  isWished={wishlist.includes(productId)}
-                  toggleWishlist={toggleWishlist}
-                />
-                <ProductInfor product={product} />
-                <SelectSize productId={productId} onSelectSize={setSelectedSize} />
-                <Text style={styles.reviewHeader}>Reviews:</Text>
-              </>
-            )}
-            renderItem={({ item }) => (
-              <View style={styles.reviewItem}>
-                <Text style={styles.reviewText}>Rating: {item.rating} ★</Text>
-                <Text style={styles.reviewText}>{item.comment}</Text>
-              </View>
-            )}
-            keyExtractor={(item) => item.id}
-          />
-          <View style={styles.addToCartContainer}>
-            <AddToCartButton productId={productId} selectedSize={selectedSize} />
-          </View>
+          {product && (
+            <>
+              <StatusBar translucent backgroundColor="transparent" barStyle="light-content" />
+              <Slider
+                images={product.images || []}
+                productId={productId}
+                isWished={wishlist.includes(productId)}
+                toggleWishlist={toggleWishlist}
+              />
+              <ProductInfor product={product} />
+              <Text style={styles.productPrice}>${product.price}</Text>
+
+              <SelectSize productId={productId} sizelist={sizeList} onSelectSize={setSelectedSize} />
+              <Text style={styles.reviewHeader}>Reviews:</Text>
+            </>
+          )}
         </>
       )}
-    </SafeAreaView>
+      renderItem={({ item }) => (
+        <View style={styles.reviewItem}>
+          <Text style={styles.reviewText}>Rating: {item.rating} ★</Text>
+          <Text style={styles.reviewText}>{item.comment}</Text>
+        </View>
+      )}
+      keyExtractor={(item) => item.id}
+      ListFooterComponent={() => (
+        <View style={styles.addToCartContainer}>
+          <AddToCartButton productId={productId} selectedSize={selectedSize} />
+        </View>
+      )}
+    />
   );
 };
 
@@ -163,14 +170,18 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   addToCartContainer: {
-    position: 'absolute',
-    bottom: 0,
-    width: '100%',
     backgroundColor: Colors.White,
     paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: Colors.LightGray,
+  },
+  productPrice: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'red',
+    marginVertical: 10,
   },
 });
 
 export default ProductDetail;
-
-

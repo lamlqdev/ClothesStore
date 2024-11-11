@@ -13,41 +13,36 @@ const AddToCartButton = ({ productId, selectedSize }) => {
   const addToCart = async () => {
     try {
       const userId = await AsyncStorage.getItem('userId');
-      console.log("Selected Size: ", selectedSize); // Kiểm tra giá trị của selectedSize
       if (!userId || !selectedSize) {
         Alert.alert('Please select product size');
         return;
       }
 
-      // Kiểm tra tồn kho
-      const productTypeSnapshot = await firestore()
-        .collection('ProductType')
-        .where('productId', '==', productId)
-        .where('size', 'array-contains', selectedSize)
-        .limit(1)
-        .get();
-
-      // Nếu không tìm thấy
-      if (productTypeSnapshot.empty) {
-        Alert.alert('No products found in the selected size');
+      const productSnapshot = await firestore().collection('Products').doc(productId).get();
+      if (!productSnapshot.exists) {
+        Alert.alert('Product not found');
         return;
       }
 
-      // Lấy thông tin sản phẩm
-      const productTypeData = productTypeSnapshot.docs[0].data();
-      const stock = productTypeData.quantity;
+      const productData = productSnapshot.data();
+      const sizeList = productData.sizelist || [];
+      
+      const selectedSizeData = sizeList.find(item => item.size === selectedSize);
+      if (!selectedSizeData) {
+        Alert.alert('Size not available for this product');
+        return;
+      }
 
-      // Kiểm tra tồn kho
+      const stock = selectedSizeData.quantity;
       if (stock <= 0) {
-        Alert.alert('This product is out of stock.');
+        Alert.alert('This size is out of stock.');
         return;
       }
 
-      // Thêm sản phẩm vào giỏ hàng
       const cartRef = firestore().collection('Cart');
       const cartItem = {
-        userId: userId,
-        productId: productId,
+        userId,
+        productId,
         size: selectedSize,
         quantity: 1,
       };

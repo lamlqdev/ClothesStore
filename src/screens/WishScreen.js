@@ -71,14 +71,6 @@ const WishScreen = () => {
     }
   };
 
-  if (!userId) {
-    return (
-      <View style={styles.container}>
-        <Text style={styles.message}>Please log in to view your wishlist.</Text>
-      </View>
-    );
-  }
-
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor={Colors.White} />
@@ -107,12 +99,6 @@ const styles = StyleSheet.create({
   container: {
     padding: spacing.sm,
     backgroundColor: Colors.White,
-  },
-  message: {
-    textAlign: 'center',
-    marginTop: 20,
-    fontSize: 16,
-    color: Colors.Gray,
   },
   productContainer: {
     marginTop: 15,

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback  } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, FlatList, TouchableOpacity, Alert, StyleSheet, Modal, Image, TextInput } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
 import { useFocusEffect } from '@react-navigation/native';
@@ -23,60 +23,64 @@ const CartScreen = ({ navigation }) => {
       const id = await AsyncStorage.getItem('userId');
       setUserId(id);
     };
-  
+
     fetchUserId();
   }, []);
-  
+
+
   useFocusEffect(
     useCallback(() => {
-      if (!userId) return; // Đảm bảo userId có giá trị trước khi tiếp tục
-  
+      if (!userId) return;
+
       const unsubscribe = firestore()
         .collection('Cart')
         .where('userId', '==', userId)
         .onSnapshot(snapshot => {
           if (snapshot.empty) {
             console.log("No items in the cart");
-            setCartItems([]); // Đảm bảo giao diện cập nhật
+            setCartItems([]);
             setLoading(false);
             return;
           }
-  
+
           const cartData = snapshot.docs.map(async (doc) => {
             const cartItem = doc.data();
             const productDoc = await firestore()
               .collection('Products')
               .doc(cartItem.productId)
               .get();
-            const productData = productDoc.exists ? productDoc.data() : null;
-  
-            const productTypeDocs = await firestore()
-              .collection('ProductType')
-              .where('productId', '==', cartItem.productId)
-              .get();
-  
-            const productTypeData = productTypeDocs.docs.find(typeDoc => {
-              const sizes = typeDoc.data().size;
-              return sizes && sizes.includes(cartItem.size);
-            });
-  
-            if (!productTypeData || !productData) {
-              console.warn('No product or product type found:', cartItem.productId, cartItem.size);
+
+            if (!productDoc.exists) {
+              console.warn('Product not found:', cartItem.productId);
               return null;
             }
-  
-            const productTypeInfo = productTypeData.data();
-  
+
+            const productData = productDoc.data();
+
+            // Kiểm tra sizelist có tồn tại và là mảng không
+            if (!productData.sizelist || !Array.isArray(productData.sizelist)) {
+              console.warn('Invalid sizelist for product:', cartItem.productId);
+              return null;
+            }
+
+            // Tìm thông tin size và quantity từ sizelist
+            const sizeInfo = productData.sizelist.find(item => item && item.size === cartItem.size);
+
+            if (!sizeInfo) {
+              console.warn('Size not found:', cartItem.size, 'for product:', cartItem.productId);
+              return null;
+            }
+
             return {
               cartId: doc.id,
               product: productData,
               size: cartItem.size,
               quantity: cartItem.quantity,
-              stock: productTypeInfo.quantity,
+              stock: sizeInfo.quantity || 0, // Thêm fallback value cho quantity
               price: productData.price,
             };
           });
-  
+
           Promise.all(cartData).then(items => {
             setCartItems(items.filter(item => item !== null));
             setLoading(false);
@@ -88,11 +92,10 @@ const CartScreen = ({ navigation }) => {
           console.error("Error in onSnapshot: ", error);
           setLoading(false);
         });
-  
-      return () => unsubscribe(); // Hủy đăng ký khi component unmount
+
+      return () => unsubscribe();
     }, [userId])
   );
-  
 
   const handleQuantityChange = (cartId, newQuantity, stock) => {
     if (newQuantity < 1 || newQuantity > stock) {
@@ -108,7 +111,6 @@ const CartScreen = ({ navigation }) => {
               item.cartId === cartId ? { ...item, quantity: newQuantity } : item
             )
           );
-          // Reset selected items and total when quantity changes
           setSelectedItems([]);
           setSelectAll(false);
         })
@@ -146,7 +148,6 @@ const CartScreen = ({ navigation }) => {
         .delete();
       setCartItems(cartItems.filter(i => i.cartId !== itemToRemove.cartId));
 
-      // Cập nhật cartlist trong users
       await firestore()
         .collection('users')
         .doc(userId)
@@ -163,7 +164,6 @@ const CartScreen = ({ navigation }) => {
   const handleCheckout = () => {
     if (selectedItems.length > 0) {
       navigation.navigate('Checkout', { selectedProducts: selectedItems });
-      // Reset selectedItems và total sau khi điều hướng
       setSelectedItems([]);
       setSelectAll(false);
     } else {
@@ -172,7 +172,6 @@ const CartScreen = ({ navigation }) => {
   };
 
   useEffect(() => {
-    // Khi cartItems thay đổi, tính lại total
     const newTotal = selectedItems.reduce((total, item) => total + item.price * item.quantity, 0).toFixed(2);
     calculateTotal(newTotal);
   }, [selectedItems, cartItems]);
@@ -198,7 +197,6 @@ const CartScreen = ({ navigation }) => {
     const total = selectedItems.reduce((sum, item) => sum + item.price * item.quantity, 0);
     return total % 1 === 0 ? total.toString() : total.toFixed(2);
   };
-  
 
   const renderCartItem = ({ item }) => (
     <Swipeable
@@ -249,7 +247,6 @@ const CartScreen = ({ navigation }) => {
       <View style={styles.container}>
         <Header title="My Cart" />
 
-        {/* Chọn tất cả sản phẩm */}
         <View style={styles.selectAllContainer}>
           <CheckBox
             value={selectAll}
@@ -266,7 +263,6 @@ const CartScreen = ({ navigation }) => {
           contentContainerStyle={styles.flatListContent}
         />
 
-        {/* Phần summary và nút Checkout */}
         <View style={styles.footer}>
           <View style={styles.summaryContainer}>
             <View style={styles.totalRow}>
@@ -279,7 +275,6 @@ const CartScreen = ({ navigation }) => {
           </View>
         </View>
 
-        {/* Modal xóa sản phẩm */}
         <Modal visible={showRemoveModal} transparent={true} animationType="slide">
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>

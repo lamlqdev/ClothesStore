@@ -21,8 +21,6 @@ const ProductCard = ({ item, onPress, isWished, onWishlistToggle }) => {
           <Icon name="heart" size={18} color={isWished ? '#fff' : 'gray'} />
         </View>
       </TouchableOpacity>
-
-
     </View>
   );
 };
