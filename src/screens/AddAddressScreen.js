@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView, PermissionsAndroid, Platform } from 'react-native';
 import axios from 'axios';
 import firestore from '@react-native-firebase/firestore';
 import Header from '../components/Header';
-import Config from 'react-native-config';
-import MapView, { Marker } from 'react-native-maps';
+import Config from '../../config';
+import Mapbox from '@rnmapbox/maps';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
 
@@ -23,10 +23,25 @@ const AddAddressScreen = ({ navigation }) => {
   const [region, setRegion] = useState({
     latitude: 21.0285,
     longitude: 105.8542,
-    latitudeDelta: 0.0922,
-    longitudeDelta: 0.0421,
+    zoomLevel: 12,
   });
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    const initializeMapbox = async () => {
+      try {
+        await Mapbox.setAccessToken(Config.MAPBOX_ACCESS_TOKEN);
+        const hasPermission = await requestLocationPermission();
+        if (hasPermission) {
+          // Initialize map here if needed
+        }
+      } catch (error) {
+        console.error('Error initializing Mapbox:', error);
+      }
+    };
+    
+    initializeMapbox();
+  }, []);
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -48,6 +63,7 @@ const AddAddressScreen = ({ navigation }) => {
         console.error('Error fetching provinces:', error);
       }
     };
+
     fetchUserId();
     fetchProvinces();
   }, []);
@@ -92,39 +108,58 @@ const AddAddressScreen = ({ navigation }) => {
     }
   }, [selectedCity]);
 
+  const requestLocationPermission = async () => {
+    if (Platform.OS === 'android') {
+      try {
+        const granted = await PermissionsAndroid.request(
+          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
+          {
+            title: "Location Permission",
+            message: "App needs access to your location",
+            buttonNeutral: "Ask Me Later",
+            buttonNegative: "Cancel",
+            buttonPositive: "OK"
+          }
+        );
+        return granted === PermissionsAndroid.RESULTS.GRANTED;
+      } catch (err) {
+        console.warn(err);
+        return false;
+      }
+    }
+    return true;
+  };
+
   const getCoordinates = async (address) => {
     if (!address) return;
     setIsLoading(true);
 
     try {
-      // Thêm "Việt Nam" vào cuối địa chỉ để tăng độ chính xác
-      const fullAddress = `${address}, Việt Nam`;
+      // Thêm "Vietnam" vào địa chỉ để cải thiện độ chính xác
+      const fullAddress = `${address}, Vietnam`;
       console.log('Full Address:', fullAddress);
-      
-      const response = await axios.get('https://maps.googleapis.com/maps/api/geocode/json', {
+
+      const response = await axios.get(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(fullAddress)}.json`, {
         params: {
-          address: fullAddress,
-          key: Config.GOOGLE_API_KEY,
-          language: 'vi', // Thêm parameter ngôn ngữ tiếng Việt
-          region: 'vn', // Thêm parameter region để ưu tiên kết quả ở Việt Nam
+          access_token: Config.MAPBOX_ACCESS_TOKEN,
+          language: 'vi',
         },
       });
 
-      if (response.data.results && response.data.results.length > 0) {
-        const location = response.data.results[0].geometry.location;
+      if (response.data.features && response.data.features.length > 0) {
+        const location = response.data.features[0].geometry.coordinates;
         setRegion({
-          latitude: location.lat,
-          longitude: location.lng,
-          latitudeDelta: 0.01, // zoom gần hơn
-          longitudeDelta: 0.01,
+          latitude: location[1],  // Mapbox trả về [longitude, latitude], cần đảo ngược
+          longitude: location[0],
+          zoomLevel: 14, // Zoom vào một chút
         });
       } else {
-        Alert.alert('No location found for this address');
-        console.log('Google Maps API response:', response.data);
+        Alert.alert('Không tìm thấy vị trí cho địa chỉ này');
+        console.log('Mapbox response:', response.data);
       }
     } catch (error) {
-      console.error('Error fetching coordinates:', error);
-      Alert.alert('An error occurred while searching for location.');
+      console.error('Lỗi khi lấy tọa độ:', error);
+      Alert.alert('Đã xảy ra lỗi trong quá trình tìm kiếm vị trí.');
     } finally {
       setIsLoading(false);
     }
@@ -137,7 +172,7 @@ const AddAddressScreen = ({ navigation }) => {
     }
 
     const fullAddress = `${street}, ${selectedWardData.full_name}, ${selectedCityData.full_name}, ${selectedProvinceData.full_name}`;
-    console.log('Searching for address:', fullAddress); 
+    console.log('Searching for address:', fullAddress);
     getCoordinates(fullAddress);
   };
 
@@ -191,7 +226,7 @@ const AddAddressScreen = ({ navigation }) => {
           onChangeText={setStreet}
           placeholder="Enter house number and street name"
         />
-        
+
         <Text style={styles.label}>Province:</Text>
         <View style={styles.pickerContainer}>
           <Picker
@@ -240,7 +275,7 @@ const AddAddressScreen = ({ navigation }) => {
           </Picker>
         </View>
 
-        <TouchableOpacity 
+        <TouchableOpacity
           style={[styles.searchButton, isLoading && styles.disabledButton]}
           onPress={handleSearchLocation}
           disabled={isLoading}
@@ -250,19 +285,30 @@ const AddAddressScreen = ({ navigation }) => {
           </Text>
         </TouchableOpacity>
 
-        <MapView
+        <Mapbox.MapView
           style={styles.map}
-          region={region}
-          onRegionChangeComplete={setRegion}
+          styleURL={Mapbox.StyleURL.Street}
+          zoomLevel={region.zoomLevel}
+          centerCoordinate={[region.longitude, region.latitude]}
+          scrollEnabled={true}
+          pitchEnabled={true}
+          rotateEnabled={true}
+          attributionEnabled={true}
+          logoEnabled={true}
         >
-          <Marker coordinate={{ latitude: region.latitude, longitude: region.longitude }} />
-        </MapView>
+          <Mapbox.Camera
+            zoomLevel={region.zoomLevel}
+            centerCoordinate={[region.longitude, region.latitude]}
+            animationDuration={0}
+          />
+          <Mapbox.PointAnnotation
+            id="marker"
+            coordinate={[region.longitude, region.latitude]}
+            title="Selected Location"
+          />
+        </Mapbox.MapView>
 
-        <TouchableOpacity 
-          style={[styles.button, isLoading && styles.disabledButton]}
-          onPress={handleAddAddress}
-          disabled={isLoading}
-        >
+        <TouchableOpacity style={styles.addButton} onPress={handleAddAddress}>
           <Text style={styles.buttonText}>Add Address</Text>
         </TouchableOpacity>
       </ScrollView>
@@ -273,65 +319,57 @@ const AddAddressScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
-  },
-  inputContainer: {
     padding: 20,
+    backgroundColor: 'white',
   },
   label: {
     fontSize: 16,
     fontWeight: '600',
-    marginBottom: 8,
-    color: '#333',
+    marginBottom: 5,
   },
   input: {
-    borderWidth: 1,
+    height: 40,
     borderColor: '#ddd',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
-    fontSize: 16,
-    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderRadius: 4,
+    paddingLeft: 10,
+    marginBottom: 10,
   },
   pickerContainer: {
-    borderWidth: 1,
+    marginBottom: 10,
     borderColor: '#ddd',
-    borderRadius: 8,
-    marginBottom: 16,
-    backgroundColor: '#fff',
-    overflow: 'hidden',
+    borderWidth: 1,
+    borderRadius: 4,
   },
   picker: {
-    height: 50,
+    height: 40,
     width: '100%',
-  },
-  button: {
-    backgroundColor: 'brown',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 25,
   },
   searchButton: {
-    backgroundColor: '#2196F3',
-    padding: 16,
-    borderRadius: 8,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  buttonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: '600',
+    backgroundColor: 'blue',
+    paddingVertical: 10,
+    borderRadius: 5,
+    marginBottom: 20,
   },
   disabledButton: {
-    opacity: 0.6,
+    backgroundColor: '#cccccc',
+  },
+  buttonText: {
+    color: 'white',
+    textAlign: 'center',
+    fontSize: 16,
   },
   map: {
+    flex: 1,
     width: '100%',
     height: 300,
-    borderRadius: 8,
-    marginBottom: 16,
+    marginBottom: 20,
+  },
+  addButton: {
+    backgroundColor: 'brown',
+    paddingVertical: 10,
+    borderRadius: 5,
+    marginBottom: 10,
   },
 });
 

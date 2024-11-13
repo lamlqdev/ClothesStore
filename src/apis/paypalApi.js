@@ -66,6 +66,22 @@ export const createOrder = async (amount) => {
     return orderData;
 };
 
+export const getOrderDetails = async (orderId) => {
+    const accessToken = await getAccessToken();
+
+    const response = await axios.get(
+        `https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderId}`,
+        {
+            headers: {
+                'Authorization': `Bearer ${accessToken}`,
+                'Content-Type': 'application/json'
+            }
+        }
+    );
+
+    return response.data;
+};
+
 export const captureOrder = async (orderId) => {
     const accessToken = await getAccessToken();
     const response = await fetch(`${BASE_URL}/v2/checkout/orders/${orderId}/capture`, {
@@ -88,7 +104,7 @@ export const captureOrder = async (orderId) => {
 
 export const createPayment = async (amount) => {
     const accessToken = await getAccessToken();
-    
+
     const paymentPayload = {
         intent: 'CAPTURE', // This is correct for PayPal v2
         purchase_units: [{
