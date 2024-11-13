@@ -86,7 +86,6 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode 1
         versionName "1.0"
-        missingDimensionStrategy 'react-native-mapbox-maps', 'mapbox'
     }
     signingConfigs {
         debug {
@@ -140,5 +139,4 @@ dependencies {
     //implementation(name: 'zpdk-release-v3.1', ext: 'aar')
     implementation files('libs/zpdk-release-v3.1.aar')
 
-    implementation project(':@rnmapbox_maps')
 }

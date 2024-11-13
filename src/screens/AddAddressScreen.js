@@ -3,7 +3,6 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ScrollView,
 import axios from 'axios';
 import firestore from '@react-native-firebase/firestore';
 import Header from '../components/Header';
-import Config from '../../config';
 import Mapbox from '@rnmapbox/maps';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Picker } from '@react-native-picker/picker';
@@ -30,16 +29,12 @@ const AddAddressScreen = ({ navigation }) => {
   useEffect(() => {
     const initializeMapbox = async () => {
       try {
-        await Mapbox.setAccessToken(Config.MAPBOX_ACCESS_TOKEN);
-        const hasPermission = await requestLocationPermission();
-        if (hasPermission) {
-          // Initialize map here if needed
-        }
+        await Mapbox.setAccessToken('pk.eyJ1IjoidGFubHVvbmciLCJhIjoiY20zZW9nZXZoMGdiYTJscHpjNTkyMjFobyJ9.he1vRAvudneBgmpI8JtG6Q');
       } catch (error) {
         console.error('Error initializing Mapbox:', error);
       }
     };
-    
+
     initializeMapbox();
   }, []);
 
@@ -108,44 +103,23 @@ const AddAddressScreen = ({ navigation }) => {
     }
   }, [selectedCity]);
 
-  const requestLocationPermission = async () => {
-    if (Platform.OS === 'android') {
-      try {
-        const granted = await PermissionsAndroid.request(
-          PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION,
-          {
-            title: "Location Permission",
-            message: "App needs access to your location",
-            buttonNeutral: "Ask Me Later",
-            buttonNegative: "Cancel",
-            buttonPositive: "OK"
-          }
-        );
-        return granted === PermissionsAndroid.RESULTS.GRANTED;
-      } catch (err) {
-        console.warn(err);
-        return false;
-      }
-    }
-    return true;
-  };
-
   const getCoordinates = async (address) => {
     if (!address) return;
     setIsLoading(true);
 
     try {
       // Thêm "Vietnam" vào địa chỉ để cải thiện độ chính xác
-      const fullAddress = `${address}, Vietnam`;
+      const fullAddress = `${address}, Việt Nam`;
       console.log('Full Address:', fullAddress);
 
       const response = await axios.get(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(fullAddress)}.json`, {
         params: {
-          access_token: Config.MAPBOX_ACCESS_TOKEN,
+          access_token: 'pk.eyJ1IjoidGFubHVvbmciLCJhIjoiY20zZW9nZXZoMGdiYTJscHpjNTkyMjFobyJ9.he1vRAvudneBgmpI8JtG6Q',
           language: 'vi',
         },
       });
 
+      console.log(response.data);
       if (response.data.features && response.data.features.length > 0) {
         const location = response.data.features[0].geometry.coordinates;
         setRegion({
@@ -163,7 +137,7 @@ const AddAddressScreen = ({ navigation }) => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }; 
 
   const handleSearchLocation = () => {
     if (!street || !selectedProvinceData || !selectedCityData || !selectedWardData) {
