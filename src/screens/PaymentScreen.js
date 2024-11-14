@@ -101,11 +101,12 @@ const PaymentScreen = () => {
             }
         };
     }
-    const handleOrderSuccess = async (appTransId) => { // Receive appTransId as a parameter
+      
+    const handleOrderSuccess = async (appTransId) => { 
         console.log('Handling order success...');
         try {
             const totalAmount = Math.round(selectedProducts.reduce((sum, product) => sum + product.price * product.quantity, 0));
-
+    
             const orderData = {
                 address: selectedAddress,
                 phone: selectedPhone,
@@ -113,7 +114,7 @@ const PaymentScreen = () => {
                 orderTime: firestore.FieldValue.serverTimestamp(),
                 total: totalAmount,
                 userId: userId,
-                appTransId: appTransId, // Use the same appTransId
+                appTransId: appTransId, 
                 products: selectedProducts.map(product => ({
                     productId: product.product.productId,
                     productName: product.product.name,
@@ -123,26 +124,39 @@ const PaymentScreen = () => {
                     productImage: product.product.image
                 })),
             };
+    
             console.log('Saving order to Firestore:', orderData);
-
+    
             // Add order to Firestore
             await firestore().collection('Orders').doc(appTransId).set(orderData);
             console.log('Order created successfully:', orderData);
-
+    
+            // Giảm số lượng size sản phẩm đã mua
+            const updateSizesPromises = selectedProducts.map(async (product) => {
+                await updateProductSizeQuantity(
+                    product.product.productId, // ID của sản phẩm
+                    product.size,              // Size được mua
+                    product.quantity           // Số lượng mua
+                );
+            });
+    
+            await Promise.all(updateSizesPromises);
+            console.log('Product sizes updated successfully.');
+    
             // Delete each product from 'Cart' and update 'cartlist' in 'users'
             const deleteCartPromises = selectedProducts.map(async (product) => {
                 await firestore().collection('Cart').doc(product.cartId).delete();
                 console.log(`Product with cartId ${product.cartId} deleted from Cart collection.`);
-
+    
                 await firestore().collection('users').doc(userId).update({
                     cartlist: firestore.FieldValue.arrayRemove(product.cartId),
                 });
                 console.log(`cartId ${product.cartId} removed from user ${userId}'s cartlist.`);
             });
-
+    
             await Promise.all(deleteCartPromises);
             console.log('All cart items deleted and user cartlist updated successfully.');
-
+    
             return true;
         } catch (error) {
             console.error('Error processing order:', error);
@@ -150,6 +164,35 @@ const PaymentScreen = () => {
             return false;
         }
     };
+    
+    // Hàm giảm số lượng size sản phẩm
+    const updateProductSizeQuantity = async (productId, size, quantityPurchased) => {
+        try {
+            const productRef = firestore().collection('Products').doc(productId);
+            const productDoc = await productRef.get();
+    
+            if (!productDoc.exists) {
+                console.error(`Product with ID ${productId} does not exist.`);
+                return;
+            }
+    
+            const productData = productDoc.data();
+            const updatedSizelist = productData.sizelist.map((item) => {
+                if (item.size === size) {
+                    // Giảm số lượng của size đã mua
+                    return { ...item, quantity: Math.max(0, item.quantity - quantityPurchased) };
+                }
+                return item;
+            });
+    
+            // Cập nhật dữ liệu mới vào Firestore
+            await productRef.update({ sizelist: updatedSizelist });
+            console.log(`Updated size quantity for product ${productId}:`, updatedSizelist);
+        } catch (error) {
+            console.error(`Error updating size quantity for product ${productId}:`, error);
+        }
+    };
+    
 
     const callPaymentAPI = async (appTransId) => { // Receive appTransId as a parameter
         console.log('Calling ZaloPay payment API and handling order...');

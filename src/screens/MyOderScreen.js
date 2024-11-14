@@ -128,9 +128,10 @@ const MyOrderScreen = () => {
                     <OrderList
                         orderList={allOrders.flatMap(order =>
                             order.products.map((product, index) => ({
+                                ...order,
                                 ...product,
                                 buttonText: 'Track Order',
-                                key: `${order.id}`, // Thêm thuộc tính key
+                                key: `${order.id}-${product.productId}-${index}`, // Thêm thuộc tính key
                             }))
                         )}
                         onClickButton={handleTrackOrder}
@@ -143,7 +144,7 @@ const MyOrderScreen = () => {
                                 ...order, // Lấy toàn bộ thông tin order
                                 ...product, // Lấy thông tin của từng sản phẩm trong order
                                 buttonText: 'Track Order',
-                                key: `${order.id}-${product.productId}`,
+                                key: `${order.id}-${product.productId}-${index}`,
                             }))
                         )}
                         onClickButton={handleTrackOrder}
@@ -156,7 +157,7 @@ const MyOrderScreen = () => {
                                 ...order, // Lấy toàn bộ thông tin order
                                 ...product, // Lấy thông tin của từng sản phẩm trong order
                                 buttonText: 'Leave Review',
-                                key: `${order.id}-${product.productId}`,
+                                key: `${order.id}-${product.productId}-${index}`,
                             }))
                         )}
                         onClickButton={handleLeaveReview}
@@ -166,6 +167,7 @@ const MyOrderScreen = () => {
                     <OrderList
                         orderList={cancelledOrders.flatMap(order =>
                             order.products.map((product, index) => ({
+                                ...order,
                                 ...product,
                                 buttonText: 'Reorder',
                                 key: `${order.id}-${product.productId}-${index}`, // Thêm thuộc tính key
