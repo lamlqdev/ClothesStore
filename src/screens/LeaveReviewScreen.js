@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { Colors } from '../constants/colors';
 import Header from '../components/Header';
@@ -47,13 +48,28 @@ const LeaveReviewScreen = () => {
     const [image, setImage] = useState(null);
 
     const addReviewToDatabase = async () => {
-        await firestore().collection('Reviews').add({
-            productId: order.productId,
-            rating,
-            comment,
-            image,
-            createdAt: firestore.FieldValue.serverTimestamp(),
-        });
+        try {
+            // Lấy userId từ AsyncStorage
+            const userId = await AsyncStorage.getItem('userId');
+            if (!userId) {
+                console.error('UserId is not available');
+                return;
+            }
+    
+            // Thêm review vào Firestore
+            await firestore().collection('Reviews').add({
+                productId: order.productId,
+                userId, // Thêm userId vào dữ liệu review
+                rating,
+                comment,
+                image,
+                createdAt: firestore.FieldValue.serverTimestamp(),
+            });
+    
+            console.log('Review added successfully');
+        } catch (error) {
+            console.error('Failed to add review:', error);
+        }
     };
 
     const updateProductRating = async () => {
