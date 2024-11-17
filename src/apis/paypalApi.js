@@ -2,13 +2,14 @@ import config from '../../config';
 import { encode } from 'base-64';
 import { Alert } from 'react-native';
 
-const PAYPAL_ENVIRONMENT = config.PAYPAL_ENVIRONMENT === 'sandbox' ? 'sandbox' : 'live';
-const BASE_URL = `https://api.${PAYPAL_ENVIRONMENT}.paypal.com`;
+const BASE_URL = `https://api-m.sandbox.paypal.com`;
 
 export const getAccessToken = async () => {
+    console.log('Getting PayPal access token');
     const credentials = encode(`${config.PAYPAL_CLIENT_ID}:${config.PAYPAL_CLIENT_SECRET}`);
+    
     try {
-        const response = await fetch(`https://api-m.${PAYPAL_ENVIRONMENT}.paypal.com/v1/oauth2/token`, {
+        const response = await fetch(`${BASE_URL}/v1/oauth2/token`, {
             method: 'POST',
             headers: {
                 'Authorization': `Basic ${credentials}`,
@@ -18,28 +19,64 @@ export const getAccessToken = async () => {
         });
 
         if (!response.ok) {
+            const errorData = await response.json();
+            console.error('PayPal Auth Error:', errorData);
             throw new Error('Failed to get access token');
         }
 
         const data = await response.json();
+        console.log('Access token obtained successfully');
         return data.access_token;
     } catch (error) {
-        console.error('Error retrieving access token:', error);
+        console.error('Error getting access token:', error);
         throw error;
     }
 };
 
-export const createOrder = async (amount) => {
+export const createOrder = async (amount, selectedProducts) => {
+    console.log('Creating PayPal order with amount:', amount);
     const accessToken = await getAccessToken();
+    console.log('Access token obtained');
+
+    const items = selectedProducts.map(item => {
+        const productName = item.product?.name;
+        const productDescription = item.product?.description || 'No description provided';
+
+        if (!productName || productName.trim() === '') {
+            console.error('Missing product name for product:', item);
+            throw new Error('Product name is required');
+        }
+
+        return {
+            name: productName, // Tên sản phẩm
+            description: productDescription.slice(0, 127), // Rút gọn chuỗi description
+            quantity: item.quantity.toString(), // Số lượng
+            unit_amount: {
+                currency_code: 'USD',
+                value: item.price.toFixed(2), // Giá
+            },
+        };
+    });
+
+    const totalAmount = selectedProducts.reduce((sum, p) => sum + p.quantity * p.price, 0).toFixed(2);
+
     const orderPayload = {
         intent: 'CAPTURE',
-        purchase_units: [{
-            amount: {
-                currency_code: 'USD',
-                value: amount.toString()
+        purchase_units: [
+            {
+                items: items,
+                amount: {
+                    currency_code: 'USD',
+                    value: totalAmount, // Tổng số tiền của đơn hàng
+                    breakdown: {
+                        item_total: {
+                            currency_code: 'USD',
+                            value: totalAmount, // Tổng giá trị các sản phẩm
+                        },
+                    },
+                },
             },
-            description: 'Order from ClothesStore shop'
-        }],
+        ],
         application_context: {
             return_url: "clothesstore://payment-success",
             cancel_url: "clothesstore://payment-cancel",
@@ -48,22 +85,32 @@ export const createOrder = async (amount) => {
         }
     };
 
-    const response = await fetch(`${BASE_URL}/v2/checkout/orders`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify(orderPayload)
-    });
+    console.log('Sending order request to PayPal with payload:', JSON.stringify(orderPayload));
 
-    const orderData = await response.json();
-    if (!response.ok) {
-        console.error("Error creating order:", orderData);
-        throw new Error(orderData.message || 'Failed to create order');
+    try {
+        const response = await fetch(`${BASE_URL}/v2/checkout/orders`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
+                'Prefer': 'return=representation'
+            },
+            body: JSON.stringify(orderPayload)
+        });
+
+        const orderData = await response.json();
+
+        if (!response.ok) {
+            console.error("PayPal API Error Response:", orderData);
+            throw new Error(orderData.message || 'Failed to create order');
+        }
+
+        console.log('PayPal order created successfully:', orderData);
+        return orderData;
+    } catch (error) {
+        console.error('Error in createOrder:', error);
+        throw error;
     }
-
-    return orderData;
 };
 
 export const getOrderDetails = async (orderId) => {
@@ -83,61 +130,31 @@ export const getOrderDetails = async (orderId) => {
 };
 
 export const captureOrder = async (orderId) => {
-    const accessToken = await getAccessToken();
-    const response = await fetch(`${BASE_URL}/v2/checkout/orders/${orderId}/capture`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-        }
-    });
-
-    const captureData = await response.json();
-    if (!response.ok) {
-        console.error("Error capturing order:", captureData);
-        throw new Error(captureData.message || 'Order capture failed');
-    }
-
-    console.log("Capture Data:", captureData); // Checking capture response
-    return captureData;
-};
-
-export const createPayment = async (amount) => {
+    console.log('Capturing PayPal order:', orderId);
     const accessToken = await getAccessToken();
 
-    const paymentPayload = {
-        intent: 'CAPTURE', // This is correct for PayPal v2
-        purchase_units: [{
-            amount: {
-                currency_code: 'USD',
-                value: amount.toString()
+    try {
+        const response = await fetch(`${BASE_URL}/v2/checkout/orders/${orderId}/capture`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${accessToken}`,
             },
-            description: 'Order from ClothesStore shop'
-        }],
-        application_context: {
-            return_url: "clothesstore://payment-success",
-            cancel_url: "clothesstore://payment-cancel",
-            brand_name: "ClothesStore",
-            user_action: "PAY_NOW"
+        });
+
+        const captureData = await response.json();
+
+        if (!response.ok) {
+            console.error("Capture failed:", captureData);
+            throw new Error(captureData.message || 'Order capture failed');
         }
-    };
 
-    const response = await fetch(`${BASE_URL}/v2/checkout/orders`, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${accessToken}`
-        },
-        body: JSON.stringify(paymentPayload)
-    });
-
-    const orderData = await response.json();
-    if (!response.ok) {
-        console.error("Failed to create payment:", orderData);
-        throw new Error(orderData.message || 'Failed to create payment');
+        console.log('Capture successful:', captureData);
+        return captureData;
+    } catch (error) {
+        console.error('Error in captureOrder:', error);
+        throw error;
     }
-
-    return orderData;
 };
 
 export const executePayment = async (paymentId, payerId) => {

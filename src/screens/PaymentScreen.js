@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 import firestore from '@react-native-firebase/firestore';
 import WebView from 'react-native-webview';
-import { createPayment, executePayment } from '../apis/paypalApi';
+import { createOrder, captureOrder } from '../apis/paypalApi';
 import CryptoJS from 'crypto-js';
 
 const { PayZaloBridge } = NativeModules;
@@ -101,20 +101,36 @@ const PaymentScreen = () => {
             }
         };
     }
-      
-    const handleOrderSuccess = async (appTransId) => { 
-        console.log('Handling order success...');
+
+    const handleOrderSuccess = async (appTransId) => {
+        console.log('Saving order to Firestore...');
         try {
-            const totalAmount = Math.round(selectedProducts.reduce((sum, product) => sum + product.price * product.quantity, 0));
-    
+            const totalAmount = selectedProducts.reduce(
+                (sum, product) => sum + product.price * product.quantity,
+                0
+            );
+
+            let paymentMethod;
+            switch (selectedOption) {
+                case 'paypal':
+                    paymentMethod = 'PayPal';
+                    break;
+                case 'zalopay':
+                    paymentMethod = 'ZaloPay';
+                    break;
+                default:
+                    paymentMethod = 'Unknown';
+            }
+
             const orderData = {
                 address: selectedAddress,
                 phone: selectedPhone,
-                orderStatus: 'Waiting for payment',
+                orderStatus: 'Waiting for payment', // Changed from 'Waiting for payment' since PayPal payment is completed
                 orderTime: firestore.FieldValue.serverTimestamp(),
                 total: totalAmount,
                 userId: userId,
-                appTransId: appTransId, 
+                appTransId: appTransId,
+                paymentMethod: paymentMethod,
                 products: selectedProducts.map(product => ({
                     productId: product.product.productId,
                     productName: product.product.name,
@@ -124,58 +140,46 @@ const PaymentScreen = () => {
                     productImage: product.product.image
                 })),
             };
-    
-            console.log('Saving order to Firestore:', orderData);
-    
-            // Add order to Firestore
+
+            // Add order to Firestore with specific appTransId
             await firestore().collection('Orders').doc(appTransId).set(orderData);
-            console.log('Order created successfully:', orderData);
-    
-            // Giảm số lượng size sản phẩm đã mua
-            const updateSizesPromises = selectedProducts.map(async (product) => {
-                await updateProductSizeQuantity(
-                    product.product.productId, // ID của sản phẩm
-                    product.size,              // Size được mua
-                    product.quantity           // Số lượng mua
-                );
-            });
-    
-            await Promise.all(updateSizesPromises);
-            console.log('Product sizes updated successfully.');
-    
-            // Delete each product from 'Cart' and update 'cartlist' in 'users'
-            const deleteCartPromises = selectedProducts.map(async (product) => {
+            console.log('Order saved successfully:', appTransId);
+
+            // Update product quantities
+            await Promise.all(selectedProducts.map(product =>
+                updateProductSizeQuantity(
+                    product.product.productId,
+                    product.size,
+                    product.quantity
+                )
+            ));
+
+            // Delete cart items
+            await Promise.all(selectedProducts.map(async (product) => {
                 await firestore().collection('Cart').doc(product.cartId).delete();
-                console.log(`Product with cartId ${product.cartId} deleted from Cart collection.`);
-    
                 await firestore().collection('users').doc(userId).update({
                     cartlist: firestore.FieldValue.arrayRemove(product.cartId),
                 });
-                console.log(`cartId ${product.cartId} removed from user ${userId}'s cartlist.`);
-            });
-    
-            await Promise.all(deleteCartPromises);
-            console.log('All cart items deleted and user cartlist updated successfully.');
-    
+            }));
+
             return true;
         } catch (error) {
-            console.error('Error processing order:', error);
-            Alert.alert('Error', 'Failed to process order');
+            console.error('Error saving order:', error);
             return false;
         }
     };
-    
+
     // Hàm giảm số lượng size sản phẩm
     const updateProductSizeQuantity = async (productId, size, quantityPurchased) => {
         try {
             const productRef = firestore().collection('Products').doc(productId);
             const productDoc = await productRef.get();
-    
+
             if (!productDoc.exists) {
                 console.error(`Product with ID ${productId} does not exist.`);
                 return;
             }
-    
+
             const productData = productDoc.data();
             const updatedSizelist = productData.sizelist.map((item) => {
                 if (item.size === size) {
@@ -184,7 +188,7 @@ const PaymentScreen = () => {
                 }
                 return item;
             });
-    
+
             // Cập nhật dữ liệu mới vào Firestore
             await productRef.update({ sizelist: updatedSizelist });
             console.log(`Updated size quantity for product ${productId}:`, updatedSizelist);
@@ -192,7 +196,7 @@ const PaymentScreen = () => {
             console.error(`Error updating size quantity for product ${productId}:`, error);
         }
     };
-    
+
 
     const callPaymentAPI = async (appTransId) => { // Receive appTransId as a parameter
         console.log('Calling ZaloPay payment API and handling order...');
@@ -307,83 +311,98 @@ const PaymentScreen = () => {
 
     const handlePaypalPayment = async () => {
         if (isProcessing) return;
-
+    
         setIsProcessing(true);
         try {
-            const amount = selectedProducts.reduce((sum, product) => sum + (product.price * product.quantity), 0).toFixed(2);
-            const result = await createPayment(amount);
-
-            const approvalLink = result.links.find(link => link.rel === 'approve');
-            if (!approvalLink) throw new Error('No approval URL found in order response');
-
-            setApprovalUrl(approvalLink.href);
-            setPaymentId(result.id);
+            const amount = selectedProducts
+                .reduce((sum, product) => sum + product.price * product.quantity, 0)
+                .toFixed(2);
+    
+            // Gọi createOrder để tạo giao dịch trên PayPal
+            const orderData = await createOrder(amount, selectedProducts);
+            console.log('PayPal order created:', orderData);
+    
+            // Tìm URL "approve" để mở trong WebView
+            const approvalLink = orderData.links?.find(link => link.rel === 'approve')?.href;
+            if (!approvalLink) {
+                throw new Error('No approval URL found in PayPal response');
+            }
+    
+            setApprovalUrl(approvalLink); // Lưu URL để hiển thị trong WebView
+            setPaymentId(orderData.id);  // Lưu lại ID đơn hàng
         } catch (error) {
-            Alert.alert('Payment Error', 'Failed to initialize payment. Please try again or contact support.');
+            console.error('PayPal payment initialization error:', error);
+            Alert.alert(
+                'Payment Error',
+                'Failed to initialize payment. Please try again or contact support.'
+            );
         } finally {
             setIsProcessing(false);
+        }
+    };    
+
+    const handlePaymentCancel = () => {
+        setApprovalUrl(null);
+        setIsProcessing(false);
+        setPaymentId(null);
+
+        // Reset các state khác nếu cần
+        setSelectedOption(null);
+
+        navigation.reset({
+            index: 0,
+            routes: [{ name: 'Payment' }],
+        });
+    };
+
+    const handlePaymentSuccess = async (captureResult) => {
+        try {
+            console.log('Processing successful payment...', captureResult);
+            // Tạo appTransId cho đơn hàng
+            const appTransId = generateAppTransId();
+
+            // Lưu order vào Firestore
+            const orderSuccess = await handleOrderSuccess(appTransId);
+
+            if (orderSuccess) {
+                navigation.reset({
+                    index: 0,
+                    routes: [{ name: 'PaymentSuccess' }],
+                });
+            } else {
+                throw new Error('Failed to save order');
+            }
+        } catch (error) {
+            console.error('Payment Success Handler Error:', error);
+            Alert.alert('Error', 'Payment completed but failed to process order. Please contact support.');
         }
     };
 
     const handleWebViewNavigationStateChange = async (event) => {
-        if (event.url.includes('payment-success')) {
-            try {
-                const captureResult = await captureOrder(paymentId);
-
-                if (captureResult.status === 'COMPLETED') {
-                    await saveOrderToFirestore(captureResult);
-                    setApprovalUrl(null);
-                    navigation.navigate('PaymentSuccess');
-                } else {
-                    throw new Error('Order capture not completed');
+        console.log('WebView Navigation:', event.url);
+    
+        if (!event.url) return;
+    
+        if (event.url.startsWith('clothesstore://')) {
+            if (event.url.includes('payment-success')) {
+                console.log('Payment success URL detected');
+                const urlParams = new URLSearchParams(event.url.split('?')[1]);
+                const token = urlParams.get('token');
+    
+                if (token) {
+                    const captureResult = await captureOrder(token);
+                    if (captureResult.status === 'COMPLETED') {
+                        await handlePaymentSuccess(captureResult);
+                    } else {
+                        throw new Error(`Order capture failed with status: ${captureResult.status}`);
+                    }
                 }
-            } catch (error) {
-                console.error('Payment Capture Error:', error);
-                Alert.alert('Payment Failed', error.message || 'Unable to complete payment');
-                setApprovalUrl(null);
-                navigation.navigate('Payment');
+            } else if (event.url.includes('payment-cancel')) {
+                console.log('Payment cancelled URL detected');
+                handlePaymentCancel();
             }
-        } else if (event.url.includes('payment-cancel')) {
-            console.log('Payment Cancelled');
-            setApprovalUrl(null);
-            setIsProcessing(false);
-            navigation.navigate('Payment');
         }
-    };
-
-    const saveOrderToFirestore = async (paymentResult) => {
-        try {
-            console.log('Saving order to Firestore:', paymentResult);
-
-            const totalAmount = selectedProducts.reduce(
-                (sum, product) => sum + (product.price * product.quantity),
-                0
-            ).toFixed(2);
-
-            const orderDetails = {
-                paymentId: paymentResult.id,
-                paymentStatus: paymentResult.state,
-                address: selectedAddress,
-                phone: selectedPhone,
-                orderStatus: 'Active',
-                orderTime: firestore.FieldValue.serverTimestamp(),
-                total: totalAmount,
-                userId: userId,
-                products: selectedProducts.map(product => ({
-                    productId: product.product.id,
-                    name: product.product.name,
-                    quantity: product.quantity,
-                    price: product.price,
-                })),
-            };
-
-            const docRef = await firestore().collection('Orders').add(orderDetails);
-            console.log('Order saved successfully with ID:', docRef.id);
-        } catch (error) {
-            console.error('Error saving order to Firestore:', error);
-            Alert.alert('Error', 'Failed to save order details. Please contact support.');
-        }
-    };
+    };                
 
     return (
         <View style={styles.container}>
