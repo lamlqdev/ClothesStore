@@ -55,7 +55,7 @@ const LeaveReviewScreen = () => {
                 console.error('UserId is not available');
                 return;
             }
-    
+
             // Thêm review vào Firestore
             await firestore().collection('Reviews').add({
                 productId: order.productId,
@@ -65,7 +65,7 @@ const LeaveReviewScreen = () => {
                 image,
                 createdAt: firestore.FieldValue.serverTimestamp(),
             });
-    
+
             console.log('Review added successfully');
         } catch (error) {
             console.error('Failed to add review:', error);
@@ -77,26 +77,51 @@ const LeaveReviewScreen = () => {
         await firestore().runTransaction(async transaction => {
             const productDoc = await transaction.get(productRef);
             if (!productDoc.exists) throw new Error('Product does not exist.');
-    
+
             const { rating: currentRating, sale } = productDoc.data();
             const updatedRating = ((currentRating * sale + rating) / (sale + 1)).toFixed(1); // Làm tròn đến 1 chữ số thập phân
-    
+
             transaction.update(productRef, {
                 rating: parseFloat(updatedRating), // Đảm bảo giá trị là số thực
                 sale: sale + 1,
             });
         });
     };
-
-    const updateOrderStatus = async () => {
+    const updateOrderProductReviewStatus = async () => {
         const orderRef = firestore().collection('Orders').doc(order.id);
+
         try {
-            await orderRef.update({
-                orderStatus: 'Reviewed',
+            await firestore().runTransaction(async (transaction) => {
+                // Lấy tài liệu đơn hàng
+                const orderDoc = await transaction.get(orderRef);
+                if (!orderDoc.exists) {
+                    throw new Error('Order does not exist.');
+                }
+
+                // Lấy mảng products
+                const { products } = orderDoc.data();
+                if (!Array.isArray(products)) {
+                    throw new Error('Products field is missing or invalid.');
+                }
+
+                // Tìm sản phẩm cần cập nhật
+                const updatedProducts = products.map(product => {
+                    if (product.productId === order.productId) {
+                        return {
+                            ...product,
+                            hasReviewed: true, // Cập nhật hasReviewed thành true
+                        };
+                    }
+                    return product; // Các sản phẩm khác giữ nguyên
+                });
+
+                // Cập nhật lại mảng products
+                transaction.update(orderRef, { products: updatedProducts });
             });
-            console.log('Order status updated to Reviewed');
+
+            console.log('Product review status updated successfully!');
         } catch (error) {
-            console.error('Failed to update order status:', error);
+            console.error('Failed to update product review status:', error);
         }
     };
 
@@ -105,7 +130,7 @@ const LeaveReviewScreen = () => {
         try {
             await addReviewToDatabase();
             await updateProductRating();
-            await updateOrderStatus();
+            await updateOrderProductReviewStatus();
             //logOrderDetails(order);
 
             console.log('Review submitted and order status updated successfully!');
@@ -142,15 +167,24 @@ const LeaveReviewScreen = () => {
                 <OrderList
                     orderList={[{
                         id: order.orderId,
+                        productId: order.productId, // Thêm productId
                         productImage: order.productImage,
                         productName: order.productName,
                         size: order.size,
                         quantity: order.quantity,
                         price: order.price,
-                        buttonText: 'Re-Order',
+                        buttonText: 'Reorder',
+                        key: `${order.id}_${order.productId}`,
                     }]}
-                    onClickButton={handleLeaveReview}
+                    onClickButton={(orderItem) => {
+                        if (orderItem.buttonText === 'Reorder') {
+                            navigation.navigate('ProductDetail', { productId: orderItem.productId });
+                        } else {
+                            handleLeaveReview();
+                        }
+                    }}
                 />
+
                 <Separator />
                 <Text style={styles.textQuestion}>How is your Order</Text>
                 <Separator />

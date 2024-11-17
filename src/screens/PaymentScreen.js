@@ -102,7 +102,7 @@ const PaymentScreen = () => {
         };
     }
       
-    const handleOrderSuccess = async (appTransId) => { 
+    const handleOrderSuccess = async (appTransId) => {
         console.log('Handling order success...');
         try {
             const totalAmount = Math.round(selectedProducts.reduce((sum, product) => sum + product.price * product.quantity, 0));
@@ -114,9 +114,11 @@ const PaymentScreen = () => {
                 orderTime: firestore.FieldValue.serverTimestamp(),
                 total: totalAmount,
                 userId: userId,
-                appTransId: appTransId, 
+                appTransId: appTransId,
+                paymentMethod: "ZaloPay",
                 products: selectedProducts.map(product => ({
                     productId: product.product.productId,
+                    hasReviewed: false,
                     productName: product.product.name,
                     quantity: product.quantity,
                     price: product.price,
@@ -127,9 +129,9 @@ const PaymentScreen = () => {
     
             console.log('Saving order to Firestore:', orderData);
     
-            // Add order to Firestore
+            // Thêm đơn hàng vào Firestore với appTransId làm ID
             await firestore().collection('Orders').doc(appTransId).set(orderData);
-            console.log('Order created successfully:', orderData);
+            console.log('Order created successfully with appTransId:', appTransId);
     
             // Giảm số lượng size sản phẩm đã mua
             const updateSizesPromises = selectedProducts.map(async (product) => {
@@ -164,6 +166,7 @@ const PaymentScreen = () => {
             return false;
         }
     };
+    
     
     // Hàm giảm số lượng size sản phẩm
     const updateProductSizeQuantity = async (productId, size, quantityPurchased) => {

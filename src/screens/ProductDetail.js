@@ -75,7 +75,7 @@ const ProductDetail = ({ route, navigation }) => {
               id: doc.id,
               ...review,
               userName,
-              reviewTime: review.timestamp ? review.timestamp.toDate() : null,
+              reviewTime: review.createdAt ? review.createdAt.toDate() : null,
             };
           })
         );

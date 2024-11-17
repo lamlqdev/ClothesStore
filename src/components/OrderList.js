@@ -22,7 +22,7 @@ const OrderList = ({ orderList, onClickButton }) => {
     <FlatList
       data={orderList}
       renderItem={renderItem}
-      keyExtractor={(item) => item.id}
+      keyExtractor={(item) => item.key}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       contentContainerStyle={styles.contentContainer}
       initialNumToRender={5} 
