@@ -11,6 +11,7 @@ import { Fonts } from '../constants/fonts';
 import ReviewInput from '../components/ReviewInput';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import firestore from '@react-native-firebase/firestore';
+import { readFile } from 'react-native-image-base64';
 
 const RatingStars = ({ onRatingChange }) => {
     const [rating, setRating] = useState(0);
@@ -49,23 +50,22 @@ const LeaveReviewScreen = () => {
 
     const addReviewToDatabase = async () => {
         try {
-            // Lấy userId từ AsyncStorage
             const userId = await AsyncStorage.getItem('userId');
             if (!userId) {
                 console.error('UserId is not available');
                 return;
             }
-    
-            // Thêm review vào Firestore
+
+            // Lưu ảnh Base64 vào Firestore
             await firestore().collection('Reviews').add({
                 productId: order.productId,
-                userId, // Thêm userId vào dữ liệu review
+                userId,
                 rating,
                 comment,
                 image,
                 createdAt: firestore.FieldValue.serverTimestamp(),
             });
-    
+
             console.log('Review added successfully');
         } catch (error) {
             console.error('Failed to add review:', error);
@@ -77,37 +77,56 @@ const LeaveReviewScreen = () => {
         await firestore().runTransaction(async transaction => {
             const productDoc = await transaction.get(productRef);
             if (!productDoc.exists) throw new Error('Product does not exist.');
-    
+
             const { rating: currentRating, sale } = productDoc.data();
-            const updatedRating = ((currentRating * sale + rating) / (sale + 1)).toFixed(1); // Làm tròn đến 1 chữ số thập phân
-    
+            const updatedRating = ((currentRating * sale + rating) / (sale + 1)).toFixed(1);
+
             transaction.update(productRef, {
-                rating: parseFloat(updatedRating), // Đảm bảo giá trị là số thực
+                rating: parseFloat(updatedRating),
                 sale: sale + 1,
             });
         });
     };
 
-    const updateOrderStatus = async () => {
+    const updateOrderProductReviewStatus = async () => {
         const orderRef = firestore().collection('Orders').doc(order.id);
+
         try {
-            await orderRef.update({
-                orderStatus: 'Reviewed',
+            await firestore().runTransaction(async (transaction) => {
+                const orderDoc = await transaction.get(orderRef);
+                if (!orderDoc.exists) {
+                    throw new Error('Order does not exist.');
+                }
+
+                const { products } = orderDoc.data();
+                if (!Array.isArray(products)) {
+                    throw new Error('Products field is missing or invalid.');
+                }
+
+                const updatedProducts = products.map(product => {
+                    if (product.productId === order.productId) {
+                        return {
+                            ...product,
+                            hasReviewed: true,
+                        };
+                    }
+                    return product;
+                });
+
+                transaction.update(orderRef, { products: updatedProducts });
             });
-            console.log('Order status updated to Reviewed');
+
+            console.log('Product review status updated successfully!');
         } catch (error) {
-            console.error('Failed to update order status:', error);
+            console.error('Failed to update product review status:', error);
         }
     };
-
 
     const handleLeaveReview = async () => {
         try {
             await addReviewToDatabase();
             await updateProductRating();
-            await updateOrderStatus();
-            //logOrderDetails(order);
-
+            await updateOrderProductReviewStatus();
             console.log('Review submitted and order status updated successfully!');
             navigation.goBack();
         } catch (error) {
@@ -115,6 +134,7 @@ const LeaveReviewScreen = () => {
         }
     };
 
+    // Cập nhật hàm pickImage để chuyển ảnh thành Base64
     const pickImage = async () => {
         const options = {
             mediaType: 'photo',
@@ -123,14 +143,21 @@ const LeaveReviewScreen = () => {
             quality: 1,
         };
 
-        launchImageLibrary(options, (response) => {
+        launchImageLibrary(options, async (response) => {
             if (response.didCancel) {
                 console.log('User cancelled image picker');
             } else if (response.errorMessage) {
                 console.log('ImagePicker Error: ', response.errorMessage);
             } else if (response.assets && response.assets.length > 0) {
                 const uri = response.assets[0].uri;
-                setImage(uri);
+                
+                // Chuyển URI thành Base64
+                try {
+                    const base64Image = await readFile(uri, 'base64');
+                    setImage(base64Image); // Lưu Base64 vào state
+                } catch (error) {
+                    console.error('Failed to convert image to Base64:', error);
+                }
             }
         });
     };
@@ -142,14 +169,23 @@ const LeaveReviewScreen = () => {
                 <OrderList
                     orderList={[{
                         id: order.orderId,
+                        productId: order.productId,
                         productImage: order.productImage,
                         productName: order.productName,
                         size: order.size,
                         quantity: order.quantity,
                         price: order.price,
-                        buttonText: 'Re-Order',
+                        buttonText: 'Reorder',
+                        key: `${order.id}_${order.productId}`,
                     }]}
-                    onClickButton={handleLeaveReview}
+
+                    onClickButton={(orderItem) => {
+                        if (orderItem.buttonText === 'Reorder') {
+                            navigation.navigate('ProductDetail', { productId: orderItem.productId });
+                        } else {
+                            handleLeaveReview();
+                        }
+                    }}
                 />
                 <Separator />
                 <Text style={styles.textQuestion}>How is your Order</Text>
@@ -157,13 +193,12 @@ const LeaveReviewScreen = () => {
                 <RatingStars onRatingChange={setRating} />
                 <Separator />
                 <ReviewInput onCommentChange={setComment} />
-
-                {/* Add photo section */}
+                
                 <TouchableOpacity style={styles.addPhotoButton} onPress={pickImage}>
                     <Icon name="camera" size={20} color={Colors.Brown} />
                     <Text style={styles.addPhotoText}>Add photo</Text>
                 </TouchableOpacity>
-                {image && <Image source={{ uri: image }} style={styles.imagePreview} />}
+                {image && <Image source={{ uri: `data:image/jpeg;base64,${image}` }} style={styles.imagePreview} />}
             </View>
             <View style={styles.buttonContainer}>
                 <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>
@@ -184,7 +219,7 @@ const styles = StyleSheet.create({
         flex: 1,
         flexDirection: 'column',
         padding: 10,
-        backgroundColor: Colors.White,
+        backgroundColor: 'White',
         justifyContent: 'space-between',
     },
     textQuestion: {

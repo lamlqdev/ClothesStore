@@ -88,13 +88,10 @@ const MyOrderScreen = () => {
         navigation.navigate('TrackOrder', { order });
     };
 
-    const handleLeaveReview = (order) => {
-        navigation.navigate('LeaveReview', { order });
+    const handleReorder = (productId) => {
+        navigation.navigate('ProductDetail', { productId });
     };
-
-    const handleReorder = (order) => {
-        navigation.navigate('ProductDetail', { order });
-    };
+    
 
     const TabText = ({ title, isActive }) => (
         <TouchableOpacity onPress={() => setActiveTab(title.toLowerCase())}>
@@ -111,7 +108,82 @@ const MyOrderScreen = () => {
             </View>
         );
     }
+    const renderOrderList = (orders, activeTab, onClickButton) => {
+        const orderList = [];
+    
+        // Sử dụng vòng lặp để thu thập danh sách sản phẩm
+        orders.forEach(order => {
+            order.products.forEach(product => {
+                // Tạo key duy nhất bằng cách kết hợp orderId và productId
+                const key = `${order.id}_${product.productId}`;
+                console.log(`Generated Key: ${key}`);
+    
+                // Xác định buttonText dựa trên activeTab và trạng thái hasReviewed
+                let buttonText = '';
+                if (order.orderStatus === 'Completed') {
+                    buttonText = product.hasReviewed ?  'Reorder' : 'Leave Review';
+                } else {
+                    buttonText = 'Track Order';
+                }
+    
+                // Thêm sản phẩm vào danh sách orderList
+                orderList.push({
+                    ...order,
+                    ...product,
+                    buttonText,
+                    key,
+                });
+            });
+        });
+    
+        // Kiểm tra nếu không có sản phẩm
+        if (orderList.length === 0) {
+            return <Text style={styles.emptyText}>No orders found.</Text>;
+        }
+    
+        return (
+            <OrderList
+                orderList={orderList}
+                onClickButton={(item) => {
+                    if (item.buttonText === 'Reorder') {
+                        handleReorder(item.productId);
+                    } else {
+                        onClickButton(item);
+                    }
+                }}
+            />
+        );
+        
+    };
+    
+    
 
+    const getOrderData = () => {
+        switch (activeTab) {
+            case 'all':
+                return { orders: allOrders, activeTab: 'all', onClickButton: handleTrackOrder };
+            case 'active':
+                return { orders: activeOrders, activeTab: 'active', onClickButton: handleTrackOrder };
+            case 'completed':
+                return {
+                    orders: completedOrders,
+                    activeTab: 'completed',
+                    onClickButton: (order) => {
+                        const allReviewed = order.products.every(product => product.hasReviewed);
+                        navigation.navigate(allReviewed ? 'ProductDetail' : 'LeaveReview', { order });
+                    },
+                };
+            case 'cancelled':
+                return { orders: cancelledOrders, activeTab: 'cancelled', onClickButton: handleReorder };
+            default:
+                return { orders: [], activeTab: '', onClickButton: () => {} };
+        }
+    };
+    
+    
+
+    // Lấy dữ liệu theo tab hiện tại
+    const { orders, buttonText, onClickButton } = getOrderData();
 
     return (
         <View style={styles.container}>
@@ -123,60 +195,8 @@ const MyOrderScreen = () => {
                 <TabText title="Completed" isActive={activeTab === 'completed'} />
                 <TabText title="Cancelled" isActive={activeTab === 'cancelled'} />
             </View>
-            <View>
-                {activeTab === 'all' && (
-                    <OrderList
-                        orderList={allOrders.flatMap(order =>
-                            order.products.map((product, index) => ({
-                                ...order,
-                                ...product,
-                                buttonText: 'Track Order',
-                                key: `${order.id}-${product.productId}-${index}`, // Thêm thuộc tính key
-                            }))
-                        )}
-                        onClickButton={handleTrackOrder}
-                    />
-                )}
-                {activeTab === 'active' && (
-                    <OrderList
-                        orderList={activeOrders.flatMap(order =>
-                            order.products.map((product, index) => ({
-                                ...order, // Lấy toàn bộ thông tin order
-                                ...product, // Lấy thông tin của từng sản phẩm trong order
-                                buttonText: 'Track Order',
-                                key: `${order.id}-${product.productId}-${index}`,
-                            }))
-                        )}
-                        onClickButton={handleTrackOrder}
-                    />
-                )}
-                {activeTab === 'completed' && (
-                    <OrderList
-                        orderList={completedOrders.flatMap(order =>
-                            order.products.map((product, index) => ({
-                                ...order, // Lấy toàn bộ thông tin order
-                                ...product, // Lấy thông tin của từng sản phẩm trong order
-                                buttonText: 'Leave Review',
-                                key: `${order.id}-${product.productId}-${index}`,
-                            }))
-                        )}
-                        onClickButton={handleLeaveReview}
-                    />
-                )}
-                {activeTab === 'cancelled' && (
-                    <OrderList
-                        orderList={cancelledOrders.flatMap(order =>
-                            order.products.map((product, index) => ({
-                                ...order,
-                                ...product,
-                                buttonText: 'Reorder',
-                                key: `${order.id}-${product.productId}-${index}`, // Thêm thuộc tính key
-                            }))
-                        )}
-                        onClickButton={handleReorder}
-                    />
-                )}
-            </View>
+            {/* Hiển thị danh sách đơn hàng theo tab */}
+            <View>{renderOrderList(orders, buttonText, onClickButton)}</View>
         </View>
     );
 };

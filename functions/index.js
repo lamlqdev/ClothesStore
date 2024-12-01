@@ -39,11 +39,11 @@ exports.zaloPayCallback = functions.https.onRequest(async (req, res) => {
       console.log("Thanh toán thành công cho app_trans_id:", dataJson["app_trans_id"]);
 
       // Cập nhật trạng thái đơn hàng trong Firestore
-      //const orderId = dataJson["app_trans_id"];
-      //const ordersRef = admin.firestore().collection('Orders').doc(orderId);
+      const orderId = dataJson["app_trans_id"];
+      const ordersRef = admin.firestore().collection('Orders').doc(orderId);
 
       try {
-        await ordersRef.update({ status: 'success' });
+        await ordersRef.update({ status: 'Active' });
         result.return_code = 1;
         result.return_message = "Cập nhật trạng thái đơn hàng thành công";
       } catch (dbError) {

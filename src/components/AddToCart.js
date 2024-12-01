@@ -68,6 +68,7 @@ const AddToCartButton = ({ productId, selectedSize }) => {
         await cartRef.doc(cartId).update({ quantity: newQuantity });
       } else {
         const newCartDoc = await cartRef.add(cartItem);
+        console.log("Cart document added with ID:", newCartDoc.id);
         cartId = newCartDoc.id;
       }
 

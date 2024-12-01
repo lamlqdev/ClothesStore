@@ -143,10 +143,12 @@ export const captureOrder = async (orderId) => {
         });
 
         const captureData = await response.json();
+        console.log('Capture response:', captureData);
 
         if (!response.ok) {
-            console.error("Capture failed:", captureData);
-            throw new Error(captureData.message || 'Order capture failed');
+            const errorMessage = captureData.details?.[0]?.issue || 'Unknown error';
+            console.error("Capture failed:", errorMessage);
+            throw new Error(errorMessage);
         }
 
         console.log('Capture successful:', captureData);

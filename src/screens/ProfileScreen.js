@@ -1,14 +1,17 @@
-import React, { useState } from 'react';
-import { View, Text, Image, StatusBar, StyleSheet, TouchableOpacity, FlatList, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
+import { View, Text, Image, StatusBar, StyleSheet, TouchableOpacity, FlatList, Modal, Platform } from 'react-native';
 import { Colors } from '../constants/colors';
 import Header from '../components/Header';
 import { fontSize, iconSize, spacing } from '../constants/dimensions';
 import Feather from 'react-native-vector-icons/Feather';
 import { Fonts } from '../constants/fonts';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import firestore from '@react-native-firebase/firestore';
+import { launchImageLibrary } from 'react-native-image-picker';
 
 const menuItems = [
-    { title: 'Your profile', icon: 'user' },
+    { title: 'My profile', icon: 'user' },
     { title: 'My Orders', icon: 'shopping-bag' },
     { title: 'Settings', icon: 'settings' },
     { title: 'Contact Us', icon: 'help-circle' },
@@ -18,6 +21,40 @@ const menuItems = [
 
 const ProfileScreen = ({ navigation, onLogout }) => {
     const [logoutModalVisible, setLogoutModalVisible] = useState(false);
+    const [userName, setUserName] = useState('');  // State for user name
+    const [userImageUrl, setUserImageUrl] = useState('');  // State for user image URL
+
+    useFocusEffect(
+        React.useCallback(() => {
+            // Gọi lại hàm fetchUserData mỗi khi trang được hiển thị
+            const fetchUserData = async () => {
+                try {
+                    const userId = await AsyncStorage.getItem('userId');
+                    if (userId) {
+                        const userDoc = await firestore().collection('users').doc(userId).get();
+                        if (userDoc.exists) {
+                            const data = userDoc.data();
+                            setUserName(data.name);
+        
+                            if (data.imageUrl) {
+                                if (data.imageUrl.startsWith('data:image')) {
+                                    setUserImageUrl(data.imageUrl);
+                                } else {
+                                    setUserImageUrl('https://hoanghamobile.com/tin-tuc/wp-content/uploads/2024/03/avatar-trang-68.jpg');
+                                }
+                            } else {
+                                setUserImageUrl('https://hoanghamobile.com/tin-tuc/wp-content/uploads/2024/03/avatar-trang-68.jpg');
+                            }
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error fetching user data:', error);
+                }
+            };
+        
+            fetchUserData();
+        }, [])
+    );
 
     const renderItem = ({ item }) => (
         <TouchableOpacity
@@ -33,6 +70,8 @@ const ProfileScreen = ({ navigation, onLogout }) => {
                     setLogoutModalVisible(true);
                 } else if (item.title === 'My Orders') {
                     navigation.navigate('MyOrders');
+                } else if (item.title === 'My profile') {
+                    navigation.navigate('MyProfile');
                 }
             }}
         >
@@ -58,6 +97,55 @@ const ProfileScreen = ({ navigation, onLogout }) => {
         navigation.navigate('SignIn');
     };
 
+    const handleChangeImage = async () => {
+        try {
+            const result = await launchImageLibrary({
+                mediaType: 'photo',
+                includeBase64: true,
+                quality: 0.5,
+            });
+    
+            if (result.didCancel) {
+                console.log('User cancelled image picker');
+                return;
+            }
+    
+            if (result.errorCode) {
+                console.error('ImagePicker Error: ', result.errorMessage);
+                return;
+            }
+    
+            const asset = result.assets[0];
+            if (!asset) {
+                console.error('No image asset found');
+                return;
+            }
+    
+            // Ảnh được trả về dưới dạng Base64
+            const base64Image = asset.base64;
+    
+            console.log('Base64 Image:', base64Image);
+    
+            // Lưu Base64 vào Firestore (hoặc bạn có thể lưu vào trong tài liệu của người dùng)
+            const userId = await AsyncStorage.getItem('userId');
+            if (userId) {
+                await firestore()
+                    .collection('users')
+                    .doc(userId)
+                    .update({
+                        imageUrl: `data:image/jpeg;base64,${base64Image}`,  // Lưu ảnh base64 vào Firestore
+                    });
+            }
+    
+            // Cập nhật lại trạng thái hình ảnh
+            setUserImageUrl(`data:image/jpeg;base64,${base64Image}`);
+            console.log('Image saved as Base64 in Firestore!');
+    
+        } catch (error) {
+            console.error('Image Upload Error:', error);
+        }
+    };                   
+
     return (
         <View style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor={Colors.White} />
@@ -65,16 +153,16 @@ const ProfileScreen = ({ navigation, onLogout }) => {
 
             <View style={styles.profileImageContainer}>
                 <Image
-                    source={require('../../assets/images/profile_picture.png')}
+                    source={{ uri: userImageUrl || 'https://hoanghamobile.com/tin-tuc/wp-content/uploads/2024/03/avatar-trang-68.jpg' }}
                     style={styles.profileImage}
                 />
-                <TouchableOpacity style={styles.editIconContainer}>
+                <TouchableOpacity style={styles.editIconContainer} onPress={handleChangeImage}>
                     <Feather name={"edit-2"} size={iconSize.sm} color={Colors.White} />
                 </TouchableOpacity>
             </View>
 
             <View style={styles.nameContainer}>
-                <Text style={styles.name}>Le Quang Lam</Text>
+                <Text style={styles.name}>{userName}</Text>
             </View>
 
             <FlatList

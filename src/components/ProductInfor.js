@@ -81,8 +81,8 @@ const styles = StyleSheet.create({
   },
   description: {
     fontFamily: Fonts.interLight,
-    fontSize: 17,
-    color: Colors.Black,
+    fontSize: 19,
+    color: 'black',
     marginTop: 5,
   },
   divider: {

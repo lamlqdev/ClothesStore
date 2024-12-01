@@ -86,9 +86,7 @@ function CategoryScreen({ navigation }) {
           priceFilter = `price >= ${minPrice} AND price <= ${maxPrice}`;
         }
 
-        const categoryFilter = categoryId ? `categoryId:${categoryId}` : '';
-        const filters = [categoryFilter, genderFilter, ratingFilter, priceFilter].filter(Boolean).join(' AND ');
-
+        const categoryFilter = categoryId ? `categoryId:"${categoryId}"` : '';        const filters = [categoryFilter, genderFilter, ratingFilter, priceFilter].filter(Boolean).join(' AND ');
         const result = await index.search('', { filters });
 
         console.log('Products found:', result.hits);

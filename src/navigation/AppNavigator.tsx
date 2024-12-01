@@ -22,6 +22,7 @@ import PasswordManagerScreen from '../screens/PasswordManagerScreen';
 import PrivacyPolicyScreen from '../screens/PrivacyPolicyScreen';
 import ContactUsScreen from '../screens/ContactUsScreen';
 import MyOderScreen from '../screens/MyOderScreen';
+import MyProfileScreen from '../screens/MyProfileScreen';
 import TrackOrder from '../screens/TrackOrderScreen';
 import LeaveReviewScreen from '../screens/LeaveReviewScreen';
 import ProductDetail from '../screens/ProductDetail';
@@ -73,6 +74,7 @@ const AppNavigator = () => {
           <Stack.Screen name="PrivacyPolicy" component={PrivacyPolicyScreen} />
           <Stack.Screen name="ContactUs" component={ContactUsScreen} />
           <Stack.Screen name="MyOrders" component={MyOderScreen} />
+          <Stack.Screen name="MyProfile" component={MyProfileScreen} />
           <Stack.Screen name="TrackOrder" component={TrackOrder} />
           <Stack.Screen name="LeaveReview" component={LeaveReviewScreen} />
           <Stack.Screen name="ProductDetail" component={ProductDetail} />

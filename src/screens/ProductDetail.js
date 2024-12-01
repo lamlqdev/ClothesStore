@@ -9,7 +9,6 @@ import {
   Image,
   TouchableOpacity,
 } from 'react-native';
-import Icon from 'react-native-vector-icons/FontAwesome';
 import { Colors } from '../constants/colors';
 import Slider from '../components/Slider';
 import ProductInfor from '../components/ProductInfor';
@@ -70,12 +69,14 @@ const ProductDetail = ({ route, navigation }) => {
               .get();
 
             const userName = userSnapshot.exists ? userSnapshot.data().name : 'Anonymous';
+            const imageUrl = userSnapshot.exists ? userSnapshot.data().imageUrl : null;
 
             return {
               id: doc.id,
               ...review,
               userName,
-              reviewTime: review.timestamp ? review.timestamp.toDate() : null,
+              imageUrl,
+              reviewTime: review.createdAt ? review.createdAt.toDate() : null,
             };
           })
         );
@@ -139,6 +140,12 @@ const ProductDetail = ({ route, navigation }) => {
 
   const displayedReviews = showAllReviews ? reviews : reviews.slice(0, 3); // Display only 3 reviews initially
 
+  const getStarRating = (rating) => {
+    const fullStars = '★'.repeat(rating);
+    const emptyStars = '☆'.repeat(5 - rating);
+    return fullStars + emptyStars;
+  };
+
   return (
     <View style={styles.container}>
       <FlatList
@@ -166,11 +173,20 @@ const ProductDetail = ({ route, navigation }) => {
         renderItem={({ item }) => (
           <View style={styles.reviewItem}>
             <View style={styles.reviewHeader}>
-              <Icon name="user-circle" size={20} color={Colors.Gray} style={styles.userIcon} />
+              {item.imageUrl ? (
+                // Kiểm tra xem imageUrl là base64 hay URL thông thường
+                item.imageUrl.startsWith('data:image') ? (
+                  <Image source={{ uri: item.imageUrl }} style={styles.userAvatar} />
+                ) : (
+                  <Image source={{ uri: item.imageUrl }} style={styles.userAvatar} />
+                )
+              ) : (
+                <Text style={styles.reviewUserName}>No image</Text>
+              )}
               <Text style={styles.reviewUserName}>{item.userName}</Text>
             </View>
 
-            <Text style={styles.reviewRating}>Rating: {item.rating} ★</Text>
+            <Text style={styles.reviewRating}>{getStarRating(item.rating)}</Text>
             <Text style={styles.reviewComment}>{item.comment}</Text>
 
             {item.image && <Image source={{ uri: item.image }} style={styles.reviewImage} />}
@@ -178,12 +194,12 @@ const ProductDetail = ({ route, navigation }) => {
             <Text style={styles.reviewTime}>
               {item.reviewTime
                 ? item.reviewTime.toLocaleString('en-US', {
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit',
-                  })
+                  year: 'numeric',
+                  month: 'short',
+                  day: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })
                 : 'Unknown time'}
             </Text>
           </View>
@@ -204,7 +220,7 @@ const ProductDetail = ({ route, navigation }) => {
             {/* Thêm khoảng trống */}
             <View style={{ height: 150 }} />
           </View>
-        )}        
+        )}
       />
       <View style={styles.addToCartContainer}>
         <AddToCartButton productId={productId} selectedSize={selectedSize} />
@@ -233,22 +249,32 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 5,
+    justifyContent: 'flex-start',
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginVertical: 10,
   },
-  userIcon: {
+  userAvatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 25,
     marginRight: 8,
   },
   reviewUserName: {
-    fontSize: 16,
+    fontSize: 20,
     fontWeight: 'bold',
+    flex: 1,
+    color: 'black'
   },
   reviewRating: {
-    fontSize: 14,
+    fontSize: 18,
     color: '#F5A623',
     marginBottom: 5,
   },
   reviewComment: {
-    fontSize: 14,
+    fontSize: 24,
     marginBottom: 10,
+    fontWeight: 'bold'
   },
   reviewImage: {
     width: 100,
@@ -257,8 +283,8 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   reviewTime: {
-    fontSize: 12,
-    color: Colors.Gray,
+    fontSize: 15,
+    color: 'black',
     marginTop: 5,
     textAlign: 'right',
   },
@@ -282,11 +308,6 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: 'red',
-    marginVertical: 10,
-  },
-  reviewHeader: {
-    fontSize: 18,
-    fontWeight: 'bold',
     marginVertical: 10,
   },
 });

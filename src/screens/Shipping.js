@@ -13,7 +13,7 @@ const ShippingAddressScreen = ({ navigation, route }) => {
   const [defaultAddressIndex, setDefaultAddressIndex] = useState(null); // Chỉ số của địa chỉ mặc định
   const [userId, setUserId] = useState(null);
 
-  const { selectedProducts = [], selectedPhone } = route.params || {};
+  const { selectedProducts = [], selectedPhone, hideApplyButton, hideRadioButton } = route.params || {};
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -68,7 +68,32 @@ const ShippingAddressScreen = ({ navigation, route }) => {
         defaultAddress: selectedAddr,
       });
     }
-  };  
+  };
+
+  const handleDeleteAddress = async (index) => {
+    const addressToDelete = addressList[index];
+    try {
+      // Xóa địa chỉ khỏi Firestore
+      await firestore().collection('users').doc(userId).update({
+        addresslist: firestore.FieldValue.arrayRemove(addressToDelete),
+      });
+
+      // Nếu địa chỉ bị xóa là địa chỉ mặc định, xóa luôn địa chỉ mặc định
+      if (defaultAddressIndex === index) {
+        await firestore().collection('users').doc(userId).update({
+          defaultAddress: firestore.FieldValue.delete(),
+        });
+        setDefaultAddressIndex(null);
+      }
+
+      // Cập nhật lại danh sách địa chỉ
+      const newAddressList = addressList.filter((_, i) => i !== index);
+      setAddressList(newAddressList);
+    } catch (error) {
+      console.error("Error deleting address: ", error);
+      alert('Failed to delete address');
+    }
+  };
 
   const renderAddressItem = ({ item, index }) => (
     <View style={styles.addressItem}>
@@ -81,11 +106,13 @@ const ShippingAddressScreen = ({ navigation, route }) => {
               {item.street}, {item.city}, {item.province}
             </Text>
           </View>
-          <Icon2
-            name={selectedAddress === index ? 'radio-button-on' : 'radio-button-off'}
-            size={24}
-            color={selectedAddress === index ? '#8B4513' : '#ccc'}
-          />
+          {!hideRadioButton && (
+            <Icon2
+              name={selectedAddress === index ? 'radio-button-on' : 'radio-button-off'}
+              size={24}
+              color={selectedAddress === index ? '#8B4513' : '#ccc'}
+            />
+          )}
         </View>
       </TouchableOpacity>
 
@@ -97,6 +124,10 @@ const ShippingAddressScreen = ({ navigation, route }) => {
         />
         <Text style={styles.setDefaultText}>Set as default</Text>
       </View>
+
+      <TouchableOpacity onPress={() => handleDeleteAddress(index)}>
+        <Text style={styles.deleteText}>Delete Address</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -110,7 +141,7 @@ const ShippingAddressScreen = ({ navigation, route }) => {
     } else {
       alert('Please select an address.');
     }
-  };  
+  };
 
   return (
     <View style={styles.container}>
@@ -131,9 +162,11 @@ const ShippingAddressScreen = ({ navigation, route }) => {
         <Icon name="add" size={24} color="#000" />
         <Text style={styles.addAddressText}>Add New Shipping Address</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.button} onPress={handleApply}>
-        <Text style={styles.buttonText}>Apply</Text>
-      </TouchableOpacity>
+      {!hideApplyButton && (
+        <TouchableOpacity style={styles.button} onPress={handleApply}>
+          <Text style={styles.buttonText}>Apply</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -144,7 +177,7 @@ const ChoosePhoneScreen = ({ navigation, route }) => {
   const [defaultPhoneIndex, setDefaultPhoneIndex] = useState(null);
   const [userId, setUserId] = useState(null);
 
-  const { selectedProducts = [], selectedAddress } = route.params || {};
+  const { selectedProducts = [], selectedAddress, hideApplyButton, hideRadioButton } = route.params || {};
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -197,7 +230,32 @@ const ChoosePhoneScreen = ({ navigation, route }) => {
         defaultPhone: selectedPhoneNum,
       });
     }
-  };  
+  };
+
+  const handleDeletePhone = async (index) => {
+    const phoneToDelete = phoneList[index];
+    try {
+      // Xóa số điện thoại khỏi Firestore
+      await firestore().collection('users').doc(userId).update({
+        phonelist: firestore.FieldValue.arrayRemove(phoneToDelete),
+      });
+
+      // Nếu số điện thoại bị xóa là số mặc định, xóa luôn số điện thoại mặc định
+      if (defaultPhoneIndex === index) {
+        await firestore().collection('users').doc(userId).update({
+          defaultPhone: firestore.FieldValue.delete(),
+        });
+        setDefaultPhoneIndex(null);
+      }
+
+      // Cập nhật lại danh sách số điện thoại
+      const newPhoneList = phoneList.filter((_, i) => i !== index);
+      setPhoneList(newPhoneList);
+    } catch (error) {
+      console.error("Error deleting phone number: ", error);
+      alert('Failed to delete phone number');
+    }
+  };
 
   const renderPhoneItem = ({ item, index }) => (
     <View style={styles.addressItem}>
@@ -208,11 +266,13 @@ const ChoosePhoneScreen = ({ navigation, route }) => {
             <Text style={styles.addressType}>Phone</Text>
             <Text style={styles.addressText}>{String(item)}</Text>
           </View>
-          <Icon2
-            name={selectedPhone === index ? 'radio-button-on' : 'radio-button-off'}
-            size={24}
-            color={selectedPhone === index ? '#8B4513' : '#ccc'}
-          />
+          {!hideRadioButton && (
+            <Icon2
+              name={selectedPhone === index ? 'radio-button-on' : 'radio-button-off'}
+              size={24}
+              color={selectedPhone === index ? '#8B4513' : '#ccc'}
+            />
+          )}
         </View>
       </TouchableOpacity>
 
@@ -224,6 +284,10 @@ const ChoosePhoneScreen = ({ navigation, route }) => {
         />
         <Text style={styles.setDefaultText}>Set as default</Text>
       </View>
+
+      <TouchableOpacity onPress={() => handleDeletePhone(index)}>
+        <Text style={styles.deleteText}>Delete Phone</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -237,7 +301,7 @@ const ChoosePhoneScreen = ({ navigation, route }) => {
     } else {
       alert('Please select a phone number.');
     }
-  };  
+  };
 
   return (
     <View style={styles.container}>
@@ -258,9 +322,11 @@ const ChoosePhoneScreen = ({ navigation, route }) => {
         <Icon name="add" size={24} color="#000" />
         <Text style={styles.addAddressText}>Add New Phone Number</Text>
       </TouchableOpacity>
-      <TouchableOpacity style={styles.button} onPress={handleApply}>
-        <Text style={styles.buttonText}>Apply</Text>
-      </TouchableOpacity>
+      {!hideApplyButton && (
+        <TouchableOpacity style={styles.button} onPress={handleApply}>
+          <Text style={styles.buttonText}>Apply</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 };
@@ -331,6 +397,11 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
     fontSize: 16,
+  },
+  deleteText: {
+    color: 'red',
+    marginTop: 8,
+    fontSize: 14,
   },
 });
 

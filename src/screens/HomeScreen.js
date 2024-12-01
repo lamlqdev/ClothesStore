@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { View, Text, TextInput, Image, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import firestore from '@react-native-firebase/firestore';
-import { Colors } from '../constants/colors';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
+import { Colors } from '../constants/colors';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -15,21 +15,83 @@ function HomeScreen({ navigation }) {
   const [products, setProducts] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [wishlist, setWishlist] = useState({});
+  const [timeLeft, setTimeLeft] = useState(9000);
+  const [currentBannerProductIndex, setCurrentBannerProductIndex] = useState(0);
+  const [topProducts, setTopProducts] = useState([]);
 
   useEffect(() => {
+    // Lấy userId từ AsyncStorage
     const getUserId = async () => {
       const id = await AsyncStorage.getItem('userId');
-      console.log("User ID:", id);
       setUserId(id);
     };
-    getUserId();
-  }, []);
 
+    const fetchTopProducts = async () => {
+      try {
+        const snapshot = await firestore()
+          .collection('Products')
+          .orderBy('sale', 'desc')
+          .limit(3)
+          .get();
+        const topProducts = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        }));
+        setTopProducts(topProducts);
+      } catch (error) {
+        console.error("Error fetching top products:", error);
+      }
+    };
+
+    const fetchCategoriesAndProducts = async () => {
+      const unsubscribeCategories = firestore()
+        .collection('Categories')
+        .where('isVisible', '==', true)
+        .onSnapshot(snapshot => {
+          const categoryList = [];
+          snapshot.forEach(doc => {
+            categoryList.push({ id: doc.id, ...doc.data() });
+          });
+          setCategories(categoryList);
+
+          const validCategoryIds = categoryList.map(cat => cat.categoryId);
+          const unsubscribeProducts = firestore()
+            .collection('Products')
+            .onSnapshot(snapshot => {
+              const productList = [];
+              snapshot.forEach(doc => {
+                const product = { id: doc.id, ...doc.data() };
+                if (validCategoryIds.includes(product.categoryId)) {
+                  productList.push(product);
+                }
+              });
+              setProducts(shuffleArray(productList));
+            });
+
+          return () => unsubscribeProducts();
+        });
+
+      return () => unsubscribeCategories();
+    };
+
+    getUserId();
+    fetchTopProducts();
+    fetchCategoriesAndProducts();
+
+    // Đặt Interval để thay đổi sản phẩm banner
+    const interval = setInterval(() => {
+      setCurrentBannerProductIndex(prevIndex => (prevIndex + 1) % topProducts.length);
+    }, 4000);
+
+    return () => clearInterval(interval);
+
+  }, [topProducts.length]); // UseEffect sẽ chạy lại mỗi khi topProducts thay đổi
+
+  // Lắng nghe sự thay đổi của wishlist
   useFocusEffect(
-    React.useCallback(() => {
+    useCallback(() => {
       const fetchWishlist = async () => {
         if (!userId) return;
-
         const userDoc = await firestore().collection('users').doc(userId).get();
         if (userDoc.exists) {
           const currentWishlist = Array.isArray(userDoc.data().wishlist) ? userDoc.data().wishlist : [];
@@ -40,11 +102,11 @@ function HomeScreen({ navigation }) {
           setWishlist(wishlistObject);
         }
       };
-
       fetchWishlist();
     }, [userId])
   );
 
+  // Thêm hoặc xóa sản phẩm khỏi wishlist
   const toggleWishlist = async (productId) => {
     if (!userId) {
       console.error("User ID not found!");
@@ -80,87 +142,56 @@ function HomeScreen({ navigation }) {
     }
   };
 
+  const formatTime = (seconds) => {
+    const hours = Math.floor(seconds / 3600);
+    const minutes = Math.floor((seconds % 3600) / 60);
+    const remainingSeconds = seconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(remainingSeconds).padStart(2, '0')}`;
+  };
 
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft((prevTime) => {
+        if (prevTime <= 0) {
+          // Reset to 2:30:00 (9000 seconds) when timer reaches 0
+          return 9000;
+        } else {
+          return prevTime - 1;
+        }
+      });
+    }, 1000); // Decrease the timer every second
+
+    // Cleanup the interval when component unmounts
+    return () => clearInterval(timer);
+  }, []);
+
+  // Shuffle danh sách sản phẩm (ngẫu nhiên)
   const shuffleArray = (array) => {
     return array.sort(() => Math.random() - 0.5);
   };
 
-  // Lấy dữ liệu từ Firestore
-  useEffect(() => {
-    const fetchCategories = async () => {
-      try {
-        const categoryList = [];
-        const snapshot = await firestore().collection('Categories').get();
-        snapshot.forEach(doc => {
-          categoryList.push({ id: doc.id, ...doc.data() });
-        });
-        setCategories(categoryList);
-      } catch (error) {
-        console.error("Error fetching categories: ", error);
-      }
-    };
+  // Pagination
+  const totalPages = Math.ceil(products.length / ITEMS_PER_PAGE);
+  const currentProducts = products.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-    const fetchProducts = async () => {
-      try {
-        const productList = [];
-        const snapshot = await firestore().collection('Products').get();
-        snapshot.forEach(doc => {
-          productList.push({ id: doc.id, ...doc.data() });
-        });
-        // Sắp xếp ngẫu nhiên sản phẩm
-        setProducts(shuffleArray(productList));
-      } catch (error) {
-        console.error("Error fetching products: ", error);
-      }
-    };
-
-    const fetchWishlist = async () => {
-      if (!userId) return;
-      try {
-        const userDoc = await firestore()
-          .collection('users')
-          .doc(userId)
-          .get();
-
-        if (userDoc.exists) {
-          const currentWishlist = Array.isArray(userDoc.data().wishlist) ? userDoc.data().wishlist : [];
-          const wishlistObject = {};
-
-          currentWishlist.forEach(id => {
-            wishlistObject[id] = true;
-          });
-
-          setWishlist(wishlistObject);
-        }
-      } catch (error) {
-        console.error("Error fetching wishlist: ", error);
-      }
-    };
-
-    fetchCategories();
-    fetchProducts();
-    fetchWishlist();
-  }, [userId]);
-
-  const handleWishlistChange = (updatedWishlist) => {
-    // Cập nhật wishlist khi quay lại từ ProductDetail
-    const wishlistObject = {};
-    updatedWishlist.forEach(id => {
-      wishlistObject[id] = true;
-    });
-    setWishlist(wishlistObject);
-  };
-
-  const renderIcon = (library, iconName, size, color) => {
-    switch (library) {
-      case 'FontAwesome5':
-        return <FontAwesome5 name={iconName} size={size} color={color} />;
-      case 'FontAwesome':
-        return <Icon name={iconName} size={size} color={color} />;
-      default:
-        return <Icon name="question-circle" size={size} color={color} />;
-    }
-  };
+  const renderPagination = () => (
+    <View style={styles.paginationContainer}>
+      <View style={styles.paginationInnerContainer}>
+        {[...Array(totalPages)].map((_, index) => {
+          const pageNumber = index + 1;
+          return (
+            <TouchableOpacity
+              key={pageNumber}
+              style={[styles.pageButton, currentPage === pageNumber ? styles.activePageButton : styles.inactivePageButton]}
+              onPress={() => setCurrentPage(pageNumber)}
+            >
+              <Text style={styles.pageButtonText}>{pageNumber}</Text>
+            </TouchableOpacity>
+          );
+        })}
+      </View>
+    </View>
+  );
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
@@ -173,14 +204,21 @@ function HomeScreen({ navigation }) {
       </View>
 
       <View style={styles.bannerContainer}>
-        <Image source={{ uri: 'https://file.hstatic.net/200000503583/article/high-fashion-la-gi-21_15eb1f9733ae4344977098b5bdcaf03f_2048x2048.jpg' }} style={styles.bannerImage} />
-        <View style={styles.bannerTextContainer}>
-          <Text style={styles.bannerTitle}>New Collection</Text>
-          <Text style={styles.bannerSubtitle}>Discount 50% for the first transaction</Text>
-          <TouchableOpacity style={styles.shopNowButton}>
-            <Text style={styles.shopNowText}>Shop Now</Text>
-          </TouchableOpacity>
-        </View>
+        {topProducts.length > 0 && (
+          <>
+            <Image source={{ uri: topProducts[currentBannerProductIndex].image }} style={styles.bannerImage} />
+            <View style={styles.bannerTextContainer}>
+              <Text style={styles.bannerTitle}>{topProducts[currentBannerProductIndex].name}</Text>
+              <Text style={styles.bannerSubtitle}>Best selling product</Text>
+              <TouchableOpacity
+                style={styles.shopNowButton}
+                onPress={() => navigation.navigate('ProductDetail', { productId: topProducts[currentBannerProductIndex].id })}
+              >
+                <Text style={styles.shopNowText}>Buy Now</Text>
+              </TouchableOpacity>
+            </View>
+          </>
+        )}
       </View>
 
       <View style={styles.categoryContainer}>
@@ -197,10 +235,9 @@ function HomeScreen({ navigation }) {
               key={category.id}
               style={styles.category}
               onPress={() => {
-                // Truyền cả title và categoryId khi điều hướng sang màn hình tiếp theo
                 navigation.navigate('Category', {
                   title: category.name,
-                  categoryId: category.categoryId // Truyền categoryId
+                  categoryId: category.categoryId
                 });
               }}
             >
@@ -215,7 +252,7 @@ function HomeScreen({ navigation }) {
         <View style={styles.flashSaleHeader}>
           <Text style={styles.sectionTitle}>Flash Sale</Text>
           <Text style={styles.closingInText}>
-            Closing in: <Text style={styles.closingInTime}>02:12:56</Text>
+            Closing in: <Text style={styles.closingInTime}>{formatTime(timeLeft)}</Text>
           </Text>
         </View>
       </View>
@@ -227,45 +264,20 @@ function HomeScreen({ navigation }) {
       onPress={() => navigation.navigate('ProductDetail', { productId: item.id })}
       style={styles.productCard}>
       <Image source={{ uri: item.image }} style={styles.productImage} />
+      <Text style={styles.productName}>{item.name}</Text>
       <View style={styles.productInfo}>
-        <Text style={styles.productName}>{item.name}</Text>
+        <Text style={styles.productPrice}>${item.price}</Text>
         <View style={styles.productRating}>
           <Icon name="star" size={16} color="orange" />
           <Text style={styles.productRatingText}>{item.rating}</Text>
         </View>
       </View>
-      <Text style={styles.productPrice}>${item.price}</Text>
       <TouchableOpacity
         style={styles.wishlistIcon}
         onPress={() => toggleWishlist(item.id)}>
         <Icon name="heart" size={20} color={wishlist[item.id] ? 'brown' : 'gray'} />
       </TouchableOpacity>
     </TouchableOpacity>
-  );
-
-  const totalPages = Math.ceil(products.length / ITEMS_PER_PAGE);
-  const currentProducts = products.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
-
-  const renderPagination = () => (
-    <View style={styles.paginationContainer}>
-      <View style={styles.paginationInnerContainer}>
-        {[...Array(totalPages)].map((_, index) => {
-          const pageNumber = index + 1;
-          return (
-            <TouchableOpacity
-              key={pageNumber}
-              style={[
-                styles.pageButton,
-                currentPage === pageNumber ? styles.activePageButton : styles.inactivePageButton,
-              ]}
-              onPress={() => setCurrentPage(pageNumber)}
-            >
-              <Text style={styles.pageButtonText}>{pageNumber}</Text>
-            </TouchableOpacity>
-          );
-        })}
-      </View>
-    </View>
   );
 
   return (
@@ -444,7 +456,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginVertical: 8
+    marginVertical: 8,
+    flexWrap: 'wrap',
+    gap: 10,
   },
   productPrice: {
     fontSize: 16,

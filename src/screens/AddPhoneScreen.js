@@ -35,6 +35,13 @@ const AddPhoneScreen = ({ navigation }) => {
   }, [userId]);
 
   const handleAddPhone = async () => {
+    // Kiểm tra xem số điện thoại có 10 chữ số không
+    const phoneRegex = /^[0-9]{10}$/;  // Biểu thức chính quy để kiểm tra 10 chữ số
+    if (!phoneRegex.test(phoneNumber)) {
+      Alert.alert('Invalid phone number', 'Please enter a valid 10-digit phone number');
+      return;
+    }
+  
     if (phoneNumber === '') {
       Alert.alert('Please enter a phone number');
       return;
@@ -61,7 +68,7 @@ const AddPhoneScreen = ({ navigation }) => {
       console.error('Error adding phone number:', error);
       Alert.alert('Failed to add phone number');
     }
-  };    
+  };      
 
   return (
     <View style={styles.container}>

@@ -8,7 +8,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 import firestore from '@react-native-firebase/firestore';
 import WebView from 'react-native-webview';
-import { createOrder, captureOrder } from '../apis/paypalApi';
+import { createOrder, captureOrder, getOrderDetails } from '../apis/paypalApi';
 import CryptoJS from 'crypto-js';
 
 const { PayZaloBridge } = NativeModules;
@@ -103,7 +103,7 @@ const PaymentScreen = () => {
     }
 
     const handleOrderSuccess = async (appTransId) => {
-        console.log('Saving order to Firestore...');
+        console.log('Handling order success...');
         try {
             const totalAmount = selectedProducts.reduce(
                 (sum, product) => sum + product.price * product.quantity,
@@ -133,6 +133,7 @@ const PaymentScreen = () => {
                 paymentMethod: paymentMethod,
                 products: selectedProducts.map(product => ({
                     productId: product.product.productId,
+                    hasReviewed: false,
                     productName: product.product.name,
                     quantity: product.quantity,
                     price: product.price,
@@ -141,26 +142,31 @@ const PaymentScreen = () => {
                 })),
             };
 
-            // Add order to Firestore with specific appTransId
+            console.log('Saving order to Firestore:', orderData);
+
+            // Thêm đơn hàng vào Firestore với appTransId làm ID
             await firestore().collection('Orders').doc(appTransId).set(orderData);
-            console.log('Order saved successfully:', appTransId);
+            console.log('Order created successfully with appTransId:', appTransId);
 
-            // Update product quantities
-            await Promise.all(selectedProducts.map(product =>
-                updateProductSizeQuantity(
-                    product.product.productId,
-                    product.size,
-                    product.quantity
-                )
-            ));
+            // Giảm số lượng size sản phẩm đã mua
+            const updateSizesPromises = selectedProducts.map(async (product) => {
+                await updateProductSizeQuantity(
+                    product.product.productId, // ID của sản phẩm
+                    product.size,              // Size được mua
+                    product.quantity           // Số lượng mua
+                );
+            });
 
-            // Delete cart items
-            await Promise.all(selectedProducts.map(async (product) => {
+            await Promise.all(updateSizesPromises);
+            console.log('Product sizes updated successfully.');
+
+            // Delete each product from 'Cart' and update 'cartlist' in 'users'
+            const deleteCartPromises = selectedProducts.map(async (product) => {
                 await firestore().collection('Cart').doc(product.cartId).delete();
                 await firestore().collection('users').doc(userId).update({
                     cartlist: firestore.FieldValue.arrayRemove(product.cartId),
                 });
-            }));
+            });
 
             return true;
         } catch (error) {
@@ -168,7 +174,6 @@ const PaymentScreen = () => {
             return false;
         }
     };
-
     // Hàm giảm số lượng size sản phẩm
     const updateProductSizeQuantity = async (productId, size, quantityPurchased) => {
         try {
@@ -390,19 +395,37 @@ const PaymentScreen = () => {
                 const token = urlParams.get('token');
     
                 if (token) {
-                    const captureResult = await captureOrder(token);
-                    if (captureResult.status === 'COMPLETED') {
-                        await handlePaymentSuccess(captureResult);
-                    } else {
-                        throw new Error(`Order capture failed with status: ${captureResult.status}`);
+                    console.log('Token extracted:', token);
+    
+                    // Trước khi capture, kiểm tra trạng thái của đơn hàng
+                    try {
+                        const orderDetails = await getOrderDetails(token);
+                        console.log('Order details:', orderDetails);
+    
+                        if (orderDetails.status === 'APPROVED') {
+                            // Nếu đơn hàng đã được phê duyệt, tiến hành capture
+                            const captureResult = await captureOrder(token);
+                            if (captureResult.status === 'COMPLETED') {
+                                await handlePaymentSuccess(captureResult);
+                            } else {
+                                throw new Error(`Capture failed with status: ${captureResult.status}, details: ${JSON.stringify(captureResult)}`);
+                            }
+                        } else {
+                            throw new Error('Order is not approved yet');
+                        }
+                    } catch (error) {
+                        console.error('Error in capturing order:', error);
+                        Alert.alert('Error', 'Failed to capture the payment. Please try again.');
                     }
+                } else {
+                    Alert.alert('Error', 'Payment token not found.');
                 }
             } else if (event.url.includes('payment-cancel')) {
                 console.log('Payment cancelled URL detected');
                 handlePaymentCancel();
             }
         }
-    };                
+    };              
 
     return (
         <View style={styles.container}>

@@ -14,6 +14,7 @@ const CheckoutScreen = () => {
   const [address, setAddress] = useState(null);
   const [phone, setPhone] = useState(null);
   const [totalAmount, setTotalAmount] = useState(0);
+  const [discount, setDiscount] = useState(0);
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -37,7 +38,6 @@ const CheckoutScreen = () => {
         }
       };
 
-      // Ưu tiên địa chỉ và số điện thoại từ route.params cho lần thanh toán hiện tại
       if (route.params?.selectedAddress) {
         setAddress(route.params.selectedAddress);
       }
@@ -47,7 +47,6 @@ const CheckoutScreen = () => {
 
       fetchDefaultInfo();
 
-      // Giữ nguyên danh sách sản phẩm đã chọn
       const products = route.params?.selectedProducts || [];
       if (products.length > 0) {
         setSelectedProducts(products);
@@ -56,15 +55,43 @@ const CheckoutScreen = () => {
   );
 
   useEffect(() => {
-    const calculateTotal = () => {
-      if (selectedProducts && selectedProducts.length > 0) {
-        const total = selectedProducts.reduce((sum, product) => sum + product.price * product.quantity, 0);
-        setTotalAmount(total.toFixed(2));
+    const fetchDiscountAndCalculateTotal = async () => {
+      if (userId && selectedProducts.length > 0) {
+        const userDoc = await firestore().collection('users').doc(userId).get();
+        const userData = userDoc.data();
+        
+        let discountValue = 0;
+        
+        if (userData.membershipLevel && userData.membershipLevel !== "Normal Customer") {
+          const membershipQuery = await firestore()
+            .collection('Membership')
+            .where('membershipName', '==', userData.membershipLevel)
+            .get();
+          
+          if (!membershipQuery.empty) {
+            const membershipDoc = membershipQuery.docs[0];
+            const membershipData = membershipDoc.data();
+            discountValue = selectedProducts.reduce((sum, product) => sum + product.price * product.quantity, 0) * (membershipData.discountRate / 100);
+          } else {
+            console.error("Membership document does not exist for:", userData.membershipLevel);
+          }
+        }
+
+        // Tính tổng giá trị sản phẩm
+        const subtotal = selectedProducts.reduce((sum, product) => sum + product.price * product.quantity, 0);
+        
+        // Tính tổng sau khi giảm giá
+        const totalWithDiscount = subtotal - discountValue;
+
+        // Cộng thêm phí ship 1$
+        const finalAmount = totalWithDiscount + 1;
+        setDiscount(discountValue); // Cập nhật giá trị giảm giá
+        setTotalAmount(finalAmount.toFixed(2)); // Cập nhật tổng số tiền
       }
     };
 
-    calculateTotal();
-  }, [selectedProducts]);
+    fetchDiscountAndCalculateTotal();
+  }, [userId, selectedProducts]);
 
   const handlePlaceOrder = async () => {
     if (!address || !phone) {
@@ -74,26 +101,6 @@ const CheckoutScreen = () => {
 
     navigation.navigate('Payment', { selectedProducts, selectedAddress: address, selectedPhone: phone });
   };
-
-  useFocusEffect(
-    useCallback(() => {
-      const updatedAddress = route.params?.selectedAddress;
-      const updatedPhone = route.params?.selectedPhone;
-      const products = route.params?.selectedProducts || [];
-
-      if (updatedAddress) {
-        setAddress(updatedAddress);
-      }
-
-      if (updatedPhone) {
-        setPhone(updatedPhone);
-      }
-
-      if (products.length > 0) {
-        setSelectedProducts(products);
-      }
-    }, [route.params])
-  );
 
   const renderOrderItem = ({ item }) => (
     <View style={styles.orderItem}>
@@ -154,9 +161,19 @@ const CheckoutScreen = () => {
         contentContainerStyle={styles.listContent}
       />
 
-      <View style={styles.totalRow}>
-        <Text style={styles.totalText}>Total:</Text>
-        <Text style={styles.totalText}>${totalAmount}</Text>
+      <View style={styles.totalCol}>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalText}>Ship nationwide:</Text>
+          <Text style={[styles.totalText, styles.totalTextRight]}>+$1.00</Text>
+        </View>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalText}>Membership discount:</Text>
+          <Text style={[styles.totalText, styles.totalTextRight]}>-${discount.toFixed(2)}</Text>
+        </View>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalText}>Total:</Text>
+          <Text style={[styles.totalText, styles.totalTextRight]}>${totalAmount}</Text>
+        </View>
       </View>
 
       <TouchableOpacity style={styles.paymentButton} onPress={handlePlaceOrder}>
@@ -253,17 +270,27 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'flex-end',
   },
+  totalCol: {
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    borderTopWidth: 1,
+    borderColor: '#ddd',
+  },
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
     marginVertical: 10,
-    borderTopWidth: 1,
-    borderColor: '#ddd',
   },
   totalText: {
     fontSize: 18,
     fontWeight: 'bold',
+  },
+  totalTextRight: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    textAlign: 'right',
+    flex: 1,
   },
   paymentButton: {
     margin: 16,
