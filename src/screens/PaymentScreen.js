@@ -17,7 +17,7 @@ const payZaloBridgeEmitter = new NativeEventEmitter(PayZaloBridge);
 const PaymentScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
-    const { selectedProducts, selectedAddress, selectedPhone } = route.params || {};
+    const { selectedProducts, selectedAddress, selectedPhone, totalAmount } = route.params || {};
     const [selectedOption, setSelectedOption] = useState(null);
     const [userId, setUserId] = useState(null);
     const [approvalUrl, setApprovalUrl] = useState(null);
@@ -105,11 +105,8 @@ const PaymentScreen = () => {
     const handleOrderSuccess = async (appTransId) => {
         console.log('Handling order success...');
         try {
-            const totalAmount = selectedProducts.reduce(
-                (sum, product) => sum + product.price * product.quantity,
-                0
-            );
-
+            const amount = totalAmount;
+    
             let paymentMethod;
             switch (selectedOption) {
                 case 'paypal':
@@ -121,13 +118,13 @@ const PaymentScreen = () => {
                 default:
                     paymentMethod = 'Unknown';
             }
-
+    
             const orderData = {
                 address: selectedAddress,
                 phone: selectedPhone,
                 orderStatus: 'Waiting for payment', // Changed from 'Waiting for payment' since PayPal payment is completed
                 orderTime: firestore.FieldValue.serverTimestamp(),
-                total: totalAmount,
+                total: amount,
                 userId: userId,
                 appTransId: appTransId,
                 paymentMethod: paymentMethod,
@@ -141,13 +138,13 @@ const PaymentScreen = () => {
                     productImage: product.product.image
                 })),
             };
-
+    
             console.log('Saving order to Firestore:', orderData);
-
+    
             // Thêm đơn hàng vào Firestore với appTransId làm ID
             await firestore().collection('Orders').doc(appTransId).set(orderData);
             console.log('Order created successfully with appTransId:', appTransId);
-
+    
             // Giảm số lượng size sản phẩm đã mua
             const updateSizesPromises = selectedProducts.map(async (product) => {
                 await updateProductSizeQuantity(
@@ -155,11 +152,14 @@ const PaymentScreen = () => {
                     product.size,              // Size được mua
                     product.quantity           // Số lượng mua
                 );
+    
+                // Tăng số lượt bán (sale) cho sản phẩm
+                await increaseProductSale(product.product.productId, product.quantity);
             });
-
+    
             await Promise.all(updateSizesPromises);
-            console.log('Product sizes updated successfully.');
-
+            console.log('Product sizes and sales updated successfully.');
+    
             // Delete each product from 'Cart' and update 'cartlist' in 'users'
             const deleteCartPromises = selectedProducts.map(async (product) => {
                 await firestore().collection('Cart').doc(product.cartId).delete();
@@ -167,13 +167,14 @@ const PaymentScreen = () => {
                     cartlist: firestore.FieldValue.arrayRemove(product.cartId),
                 });
             });
-
+    
             return true;
         } catch (error) {
             console.error('Error saving order:', error);
             return false;
         }
     };
+    
     // Hàm giảm số lượng size sản phẩm
     const updateProductSizeQuantity = async (productId, size, quantityPurchased) => {
         try {
@@ -202,6 +203,30 @@ const PaymentScreen = () => {
         }
     };
 
+    // Hàm tăng số lượt bán (sale) của sản phẩm
+    const increaseProductSale = async (productId, quantitySold) => {
+        try {
+            const productRef = firestore().collection('Products').doc(productId);
+            const productDoc = await productRef.get();
+
+            if (!productDoc.exists) {
+                console.error(`Product with ID ${productId} does not exist.`);
+                return;
+            }
+
+            const productData = productDoc.data();
+            const currentSale = productData.sale || 0; // Lấy giá trị sale hiện tại, mặc định là 0 nếu chưa có
+
+            // Cập nhật số lượt bán
+            await productRef.update({
+                sale: currentSale + quantitySold
+            });
+
+            console.log(`Updated sale for product ${productId}: ${currentSale + quantitySold}`);
+        } catch (error) {
+            console.error(`Error updating sale for product ${productId}:`, error);
+        }
+    };
 
     const callPaymentAPI = async (appTransId) => { // Receive appTransId as a parameter
         console.log('Calling ZaloPay payment API and handling order...');
@@ -238,7 +263,7 @@ const PaymentScreen = () => {
             const appuser = "ZaloPayDemo";
             const callback_url = "https://us-central1-fashionstore-3d195.cloudfunctions.net/handleZaloPayCallback";
             // Tính tổng tiền theo USD và chuyển sang VND
-            const usdAmount = selectedProducts.reduce((sum, product) => sum + product.price * product.quantity, 0);
+            const usdAmount = totalAmount;
             const amount = Math.round(usdAmount * exchangeRate); // Chuyển USD sang VND
             const apptime = Math.floor(new Date().getTime());
             const embeddata = "{}";
@@ -316,23 +341,21 @@ const PaymentScreen = () => {
 
     const handlePaypalPayment = async () => {
         if (isProcessing) return;
-    
+
         setIsProcessing(true);
         try {
-            const amount = selectedProducts
-                .reduce((sum, product) => sum + product.price * product.quantity, 0)
-                .toFixed(2);
-    
+            const amount = totalAmount;
+
             // Gọi createOrder để tạo giao dịch trên PayPal
             const orderData = await createOrder(amount, selectedProducts);
             console.log('PayPal order created:', orderData);
-    
+
             // Tìm URL "approve" để mở trong WebView
             const approvalLink = orderData.links?.find(link => link.rel === 'approve')?.href;
             if (!approvalLink) {
                 throw new Error('No approval URL found in PayPal response');
             }
-    
+
             setApprovalUrl(approvalLink); // Lưu URL để hiển thị trong WebView
             setPaymentId(orderData.id);  // Lưu lại ID đơn hàng
         } catch (error) {
@@ -344,7 +367,7 @@ const PaymentScreen = () => {
         } finally {
             setIsProcessing(false);
         }
-    };    
+    };
 
     const handlePaymentCancel = () => {
         setApprovalUrl(null);
@@ -385,23 +408,23 @@ const PaymentScreen = () => {
 
     const handleWebViewNavigationStateChange = async (event) => {
         console.log('WebView Navigation:', event.url);
-    
+
         if (!event.url) return;
-    
+
         if (event.url.startsWith('clothesstore://')) {
             if (event.url.includes('payment-success')) {
                 console.log('Payment success URL detected');
                 const urlParams = new URLSearchParams(event.url.split('?')[1]);
                 const token = urlParams.get('token');
-    
+
                 if (token) {
                     console.log('Token extracted:', token);
-    
+
                     // Trước khi capture, kiểm tra trạng thái của đơn hàng
                     try {
                         const orderDetails = await getOrderDetails(token);
                         console.log('Order details:', orderDetails);
-    
+
                         if (orderDetails.status === 'APPROVED') {
                             // Nếu đơn hàng đã được phê duyệt, tiến hành capture
                             const captureResult = await captureOrder(token);
@@ -425,7 +448,7 @@ const PaymentScreen = () => {
                 handlePaymentCancel();
             }
         }
-    };              
+    };
 
     return (
         <View style={styles.container}>

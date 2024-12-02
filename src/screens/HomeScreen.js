@@ -202,9 +202,9 @@ function HomeScreen({ navigation }) {
         </View>
         <Icon name="bell" size={24} color="brown" style={styles.icon} onPress={() => navigation.navigate('Notification')} />
       </View>
-
+  
       <View style={styles.bannerContainer}>
-        {topProducts.length > 0 && (
+        {topProducts.length > 0 && topProducts[currentBannerProductIndex] && (
           <>
             <Image source={{ uri: topProducts[currentBannerProductIndex].image }} style={styles.bannerImage} />
             <View style={styles.bannerTextContainer}>
@@ -220,7 +220,7 @@ function HomeScreen({ navigation }) {
           </>
         )}
       </View>
-
+  
       <View style={styles.categoryContainer}>
         <View style={styles.categoryHeader}>
           <Text style={styles.sectionTitle}>Category</Text>
@@ -247,7 +247,7 @@ function HomeScreen({ navigation }) {
           ))}
         </ScrollView>
       </View>
-
+  
       <View style={styles.flashSaleContainer}>
         <View style={styles.flashSaleHeader}>
           <Text style={styles.sectionTitle}>Flash Sale</Text>
@@ -257,7 +257,7 @@ function HomeScreen({ navigation }) {
         </View>
       </View>
     </View>
-  );
+  );  
 
   const renderItem = ({ item }) => (
     <TouchableOpacity

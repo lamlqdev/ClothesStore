@@ -99,7 +99,7 @@ const CheckoutScreen = () => {
       return;
     }
 
-    navigation.navigate('Payment', { selectedProducts, selectedAddress: address, selectedPhone: phone });
+    navigation.navigate('Payment', { selectedProducts, selectedAddress: address, selectedPhone: phone, totalAmount: totalAmount });
   };
 
   const renderOrderItem = ({ item }) => (
@@ -163,15 +163,15 @@ const CheckoutScreen = () => {
 
       <View style={styles.totalCol}>
         <View style={styles.totalRow}>
-          <Text style={styles.totalText}>Ship nationwide:</Text>
-          <Text style={[styles.totalText, styles.totalTextRight]}>+$1.00</Text>
-        </View>
-        <View style={styles.totalRow}>
           <Text style={styles.totalText}>Membership discount:</Text>
           <Text style={[styles.totalText, styles.totalTextRight]}>-${discount.toFixed(2)}</Text>
         </View>
         <View style={styles.totalRow}>
-          <Text style={styles.totalText}>Total:</Text>
+          <Text style={styles.totalText}>Ship nationwide:</Text>
+          <Text style={[styles.totalText, styles.totalTextRight]}>+$1.00</Text>
+        </View>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalText}>Total of all:</Text>
           <Text style={[styles.totalText, styles.totalTextRight]}>${totalAmount}</Text>
         </View>
       </View>

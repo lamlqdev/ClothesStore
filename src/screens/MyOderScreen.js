@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { View, StatusBar, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native';
-import { useNavigation,useIsFocused  } from '@react-navigation/native';
+import { View, StatusBar, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList } from 'react-native';
+import { useNavigation, useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
 import OrderList from '../components/OrderList';
@@ -17,9 +17,9 @@ const MyOrderScreen = () => {
     const [allOrders, setAllOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const navigation = useNavigation();
-    const isFocused = useIsFocused(); // Hook để kiểm tra nếu màn hình được focus
+    const isFocused = useIsFocused(); // Hook to check if screen is focused
 
-    // Lấy userId từ AsyncStorage
+    // Get userId from AsyncStorage
     const getUserId = async () => {
         try {
             const userId = await AsyncStorage.getItem('userId');
@@ -47,13 +47,14 @@ const MyOrderScreen = () => {
                     id: doc.id,
                     orderStatus: data.orderStatus,
                     products: data.products || [],
-                    orderTime: data.orderTime,
+                    orderTime: data.orderTime.toDate(), // Ensure orderTime is a Date object
                 };
             });
 
-            console.log("All Orders:", orders); // In tất cả dữ liệu đơn hàng ra console
+            // Sort orders by orderTime (newest to oldest)
+            orders.sort((a, b) => b.orderTime - a.orderTime);
 
-            // Phân loại đơn hàng theo trạng thái
+            // Categorize orders by status
             const active = orders.filter(order =>
                 ['Waiting for payment', 'Active'].includes(order.orderStatus)
             );
@@ -63,12 +64,7 @@ const MyOrderScreen = () => {
             setActiveOrders(active);
             setCompletedOrders(completed);
             setCancelledOrders(cancelled);
-            setAllOrders(orders); // Lưu tất cả đơn hàng vào allOrders
-
-            // In dữ liệu theo từng trạng thái
-            console.log("Active Orders:", active);
-            console.log("Completed Orders:", completed);
-            console.log("Cancelled Orders:", cancelled);
+            setAllOrders(orders);
 
         } catch (error) {
             console.error('Failed to fetch orders', error);
@@ -77,7 +73,19 @@ const MyOrderScreen = () => {
         }
     };
 
-    // Gọi lại fetchOrders khi màn hình được focus
+    // Group orders by order date
+    const groupOrdersByDate = (orders) => {
+        return orders.reduce((groups, order) => {
+            const dateKey = order.orderTime.toLocaleDateString(); // Use the date part of orderTime
+            if (!groups[dateKey]) {
+                groups[dateKey] = [];
+            }
+            groups[dateKey].push(order);
+            return groups;
+        }, {});
+    };
+
+    // Re-fetch orders when screen is focused
     useEffect(() => {
         if (isFocused) {
             fetchOrders();
@@ -91,7 +99,6 @@ const MyOrderScreen = () => {
     const handleReorder = (productId) => {
         navigation.navigate('ProductDetail', { productId });
     };
-    
 
     const TabText = ({ title, isActive }) => (
         <TouchableOpacity onPress={() => setActiveTab(title.toLowerCase())}>
@@ -108,25 +115,20 @@ const MyOrderScreen = () => {
             </View>
         );
     }
-    const renderOrderList = (orders, activeTab, onClickButton) => {
+
+    const renderOrderList = (orders, onClickButton) => {
         const orderList = [];
-    
-        // Sử dụng vòng lặp để thu thập danh sách sản phẩm
         orders.forEach(order => {
             order.products.forEach(product => {
-                // Tạo key duy nhất bằng cách kết hợp orderId và productId
                 const key = `${order.id}_${product.productId}`;
-                console.log(`Generated Key: ${key}`);
-    
-                // Xác định buttonText dựa trên activeTab và trạng thái hasReviewed
+
                 let buttonText = '';
                 if (order.orderStatus === 'Completed') {
-                    buttonText = product.hasReviewed ?  'Reorder' : 'Leave Review';
+                    buttonText = product.hasReviewed ? 'Reorder' : 'Leave Review';
                 } else {
                     buttonText = 'Track Order';
                 }
-    
-                // Thêm sản phẩm vào danh sách orderList
+
                 orderList.push({
                     ...order,
                     ...product,
@@ -135,12 +137,11 @@ const MyOrderScreen = () => {
                 });
             });
         });
-    
-        // Kiểm tra nếu không có sản phẩm
+
         if (orderList.length === 0) {
             return <Text style={styles.emptyText}>No orders found.</Text>;
         }
-    
+
         return (
             <OrderList
                 orderList={orderList}
@@ -153,37 +154,73 @@ const MyOrderScreen = () => {
                 }}
             />
         );
-        
     };
-    
-    
 
     const getOrderData = () => {
         switch (activeTab) {
             case 'all':
-                return { orders: allOrders, activeTab: 'all', onClickButton: handleTrackOrder };
+                return {
+                    orders: allOrders,
+                    onClickButton: (order) => {
+                        // Kiểm tra đơn hàng đã hoàn thành chưa
+                        if (order.orderStatus === 'Completed') {
+                            // Kiểm tra tất cả sản phẩm trong đơn hàng đã được đánh giá chưa
+                            const hasUnreviewedProduct = order.products.some(product => !product.hasReviewed);
+                            
+                            // Nếu có sản phẩm chưa được đánh giá, điều hướng tới LeaveReview
+                            if (hasUnreviewedProduct) {
+                                const orderData = { ...order, orderTime: order.orderTime.toISOString() };
+                                navigation.navigate('LeaveReview', { order: orderData });
+                            } else {
+                                // Nếu tất cả sản phẩm đã được đánh giá, điều hướng tới ProductDetail
+                                navigation.navigate('ProductDetail', { productId: order.products[0].productId });
+                            }
+                        } else {
+                            // Nếu trạng thái đơn hàng là Active hoặc Waiting for payment, điều hướng đến TrackOrder
+                            navigation.navigate('TrackOrder', { order });
+                        }
+                    },
+                };
+    
             case 'active':
-                return { orders: activeOrders, activeTab: 'active', onClickButton: handleTrackOrder };
+                return {
+                    orders: activeOrders,
+                    onClickButton: (order) => {
+                        // Khi đơn hàng có trạng thái "Active", điều hướng tới TrackOrder
+                        navigation.navigate('TrackOrder', { order });
+                    },
+                };
+        
             case 'completed':
                 return {
                     orders: completedOrders,
-                    activeTab: 'completed',
                     onClickButton: (order) => {
+                        // Kiểm tra tất cả sản phẩm đã được đánh giá hay chưa
                         const allReviewed = order.products.every(product => product.hasReviewed);
-                        navigation.navigate(allReviewed ? 'ProductDetail' : 'LeaveReview', { order });
+        
+                        if (allReviewed) {
+                            // Nếu tất cả sản phẩm đã được đánh giá, điều hướng tới ProductDetail
+                            navigation.navigate('ProductDetail', { productId: order.products[0].productId });
+                        } else {
+                            // Nếu chưa, điều hướng tới LeaveReview
+                            const orderData = { ...order, orderTime: order.orderTime.toISOString() };
+                            navigation.navigate('LeaveReview', { order: orderData });
+                        }
                     },
                 };
+        
             case 'cancelled':
-                return { orders: cancelledOrders, activeTab: 'cancelled', onClickButton: handleReorder };
+                return { orders: cancelledOrders, onClickButton: handleReorder };
+        
             default:
-                return { orders: [], activeTab: '', onClickButton: () => {} };
+                return { orders: [], onClickButton: () => {} };
         }
-    };
-    
-    
+    };                  
 
-    // Lấy dữ liệu theo tab hiện tại
-    const { orders, buttonText, onClickButton } = getOrderData();
+    const { orders, onClickButton } = getOrderData();
+
+    // Group orders by date
+    const groupedOrders = groupOrdersByDate(orders);
 
     return (
         <View style={styles.container}>
@@ -195,8 +232,18 @@ const MyOrderScreen = () => {
                 <TabText title="Completed" isActive={activeTab === 'completed'} />
                 <TabText title="Cancelled" isActive={activeTab === 'cancelled'} />
             </View>
-            {/* Hiển thị danh sách đơn hàng theo tab */}
-            <View>{renderOrderList(orders, buttonText, onClickButton)}</View>
+
+            <FlatList
+                data={Object.keys(groupedOrders)} // Pass the keys (dates) as data for FlatList
+                renderItem={({ item: date }) => (
+                    <View key={date} style={styles.groupedOrdersContainer}>
+                        <Text style={styles.dateHeader}>{date}</Text>
+                        {renderOrderList(groupedOrders[date], onClickButton)}
+                    </View>
+                )}
+                keyExtractor={(item) => item} // Key is the date
+                contentContainerStyle={styles.scrollViewContainer}
+            />
         </View>
     );
 };
@@ -208,6 +255,12 @@ const styles = StyleSheet.create({
         flex: 1,
         padding: spacing.sm,
         backgroundColor: Colors.White,
+    },
+    dateHeader: {
+        fontSize: 18,
+        fontFamily: Fonts.interBold,
+        color: Colors.Black,
+        marginVertical: 8,
     },
     buttonContainer: {
         flexDirection: 'row',
@@ -231,6 +284,15 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
     },
+    groupedOrdersContainer: {
+        marginBottom: spacing.sm,
+    },
+    emptyText: {
+        fontSize: 16,
+        textAlign: 'center',
+        marginVertical: spacing.md,
+    },
+    scrollViewContainer: {
+        paddingBottom: spacing.md,
+    },
 });
-
-
