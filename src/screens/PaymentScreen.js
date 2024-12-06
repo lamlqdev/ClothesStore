@@ -17,7 +17,7 @@ const payZaloBridgeEmitter = new NativeEventEmitter(PayZaloBridge);
 const PaymentScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
-    const { selectedProducts, selectedAddress, selectedPhone, totalAmount } = route.params || {};
+    const { selectedProducts, selectedAddress, selectedPhone, totalAmount, discountValue } = route.params || {};
     const [selectedOption, setSelectedOption] = useState(null);
     const [userId, setUserId] = useState(null);
     const [approvalUrl, setApprovalUrl] = useState(null);
@@ -31,6 +31,7 @@ const PaymentScreen = () => {
         { id: 'paypal', name: 'Paypal', icon: <Icon name="paypal" size={24} color="#0070BA" /> },
         { id: 'momo', name: 'MoMo', icon: <Icon name="credit-card" size={24} color="purple" /> },
         { id: 'zalopay', name: 'Zalo Pay', icon: <Icon3 name="google-pay" size={24} color="#4285F4" /> },
+        { id: 'cod', name: 'COD', icon: <Icon name="american-sign-language-interpreting" size={24} color="#4285F4" /> },
     ];
 
     useEffect(() => {
@@ -81,32 +82,38 @@ const PaymentScreen = () => {
             return;
         }
         setLoading(true);
+        const appTransId = generateAppTransId();
         try {
             if (selectedOption === 'paypal') {
-                await handlePaypalPayment();
+                await handlePaypalPayment(appTransId);
             } else if (selectedOption === 'momo') {
                 Alert.alert('Unsupported Momo Option', 'Currently PayPal and ZaloPay is supported.');
-            }
-        } finally {
-            setLoading(false);
-
-            // Generate appTransId once
-            const appTransId = generateAppTransId();
-
-            if (selectedOption === 'zalopay') {
-                const paymentResult = await callPaymentAPI(appTransId); // Pass appTransId to callPaymentAPI
+            } else if (selectedOption === 'cod') {
+                const orderSuccess = await handleOrderSuccess(appTransId);
+                if (orderSuccess) {
+                    navigation.reset({
+                        index: 0,
+                        routes: [{ name: 'PaymentSuccess' }],
+                    });
+                } else {
+                    Alert.alert('Error', 'Failed to create order.');
+                }
+            } else if (selectedOption === 'zalopay') {
+                const paymentResult = await callPaymentAPI(appTransId);
                 if (!paymentResult.success) {
                     Alert.alert('Payment Failed', 'Failed to initiate payment. Please try again.');
                 }
             }
-        };
-    }
+        } finally {
+            setLoading(false);
+        }
+    };    
 
-    const handleOrderSuccess = async (appTransId) => {
+    const handleOrderSuccess = async (appTransId, orderId = null) => {
         console.log('Handling order success...');
         try {
             const amount = totalAmount;
-    
+
             let paymentMethod;
             switch (selectedOption) {
                 case 'paypal':
@@ -115,10 +122,13 @@ const PaymentScreen = () => {
                 case 'zalopay':
                     paymentMethod = 'ZaloPay';
                     break;
+                case 'cod':
+                    paymentMethod = 'COD';
+                    break;
                 default:
                     paymentMethod = 'Unknown';
             }
-    
+
             const orderData = {
                 address: selectedAddress,
                 phone: selectedPhone,
@@ -127,6 +137,7 @@ const PaymentScreen = () => {
                 total: amount,
                 userId: userId,
                 appTransId: appTransId,
+                paypalOrderId: selectedOption === 'paypal' ? orderId : null, // Chỉ lưu orderId nếu là PayPal
                 paymentMethod: paymentMethod,
                 products: selectedProducts.map(product => ({
                     productId: product.product.productId,
@@ -138,13 +149,13 @@ const PaymentScreen = () => {
                     productImage: product.product.image
                 })),
             };
-    
+
             console.log('Saving order to Firestore:', orderData);
-    
+
             // Thêm đơn hàng vào Firestore với appTransId làm ID
             await firestore().collection('Orders').doc(appTransId).set(orderData);
             console.log('Order created successfully with appTransId:', appTransId);
-    
+
             // Giảm số lượng size sản phẩm đã mua
             const updateSizesPromises = selectedProducts.map(async (product) => {
                 await updateProductSizeQuantity(
@@ -152,14 +163,14 @@ const PaymentScreen = () => {
                     product.size,              // Size được mua
                     product.quantity           // Số lượng mua
                 );
-    
+
                 // Tăng số lượt bán (sale) cho sản phẩm
                 await increaseProductSale(product.product.productId, product.quantity);
             });
-    
+
             await Promise.all(updateSizesPromises);
             console.log('Product sizes and sales updated successfully.');
-    
+
             // Delete each product from 'Cart' and update 'cartlist' in 'users'
             const deleteCartPromises = selectedProducts.map(async (product) => {
                 await firestore().collection('Cart').doc(product.cartId).delete();
@@ -167,14 +178,14 @@ const PaymentScreen = () => {
                     cartlist: firestore.FieldValue.arrayRemove(product.cartId),
                 });
             });
-    
+
             return true;
         } catch (error) {
             console.error('Error saving order:', error);
             return false;
         }
     };
-    
+
     // Hàm giảm số lượng size sản phẩm
     const updateProductSizeQuantity = async (productId, size, quantityPurchased) => {
         try {
@@ -339,25 +350,32 @@ const PaymentScreen = () => {
         return `${yy}${mm}${dd}_${randomNum}`;
     };
 
-    const handlePaypalPayment = async () => {
+    const handlePaypalPayment = async (appTransId) => {
         if (isProcessing) return;
-
-        setIsProcessing(true);
+    
+        setIsProcessing(true);    
         try {
             const amount = totalAmount;
-
+    
             // Gọi createOrder để tạo giao dịch trên PayPal
-            const orderData = await createOrder(amount, selectedProducts);
+            const orderData = await createOrder(amount, selectedProducts, discountValue);
             console.log('PayPal order created:', orderData);
-
-            // Tìm URL "approve" để mở trong WebView
+    
+            const orderId = orderData.id; // Lưu ID đơn hàng từ PayPal
+    
             const approvalLink = orderData.links?.find(link => link.rel === 'approve')?.href;
             if (!approvalLink) {
                 throw new Error('No approval URL found in PayPal response');
             }
-
-            setApprovalUrl(approvalLink); // Lưu URL để hiển thị trong WebView
-            setPaymentId(orderData.id);  // Lưu lại ID đơn hàng
+    
+            setApprovalUrl(approvalLink);
+            setPaymentId(orderId);
+    
+            // Lưu đơn hàng vào Firestore ngay sau khi tạo trên PayPal
+            const orderSuccess = await handleOrderSuccess(appTransId, orderId);
+            if (!orderSuccess) {
+                throw new Error('Failed to save order');
+            }
         } catch (error) {
             console.error('PayPal payment initialization error:', error);
             Alert.alert(
@@ -369,62 +387,50 @@ const PaymentScreen = () => {
         }
     };
 
-    const handlePaymentCancel = () => {
-        setApprovalUrl(null);
-        setIsProcessing(false);
-        setPaymentId(null);
-
-        // Reset các state khác nếu cần
-        setSelectedOption(null);
-
-        navigation.reset({
-            index: 0,
-            routes: [{ name: 'Payment' }],
-        });
-    };
-
     const handlePaymentSuccess = async (captureResult) => {
         try {
             console.log('Processing successful payment...', captureResult);
-            // Tạo appTransId cho đơn hàng
-            const appTransId = generateAppTransId();
-
-            // Lưu order vào Firestore
-            const orderSuccess = await handleOrderSuccess(appTransId);
-
-            if (orderSuccess) {
+            const orderId = captureResult.id; // Lấy lại orderId từ PayPal capture result
+    
+            // Cập nhật trạng thái đơn hàng đã được thanh toán
+            const orderUpdateSuccess = await firestore()
+                .collection('Orders')
+                .doc(captureResult.id)
+                .update({ orderStatus: 'Paid' });
+    
+            if (orderUpdateSuccess) {
                 navigation.reset({
                     index: 0,
                     routes: [{ name: 'PaymentSuccess' }],
                 });
             } else {
-                throw new Error('Failed to save order');
+                throw new Error('Failed to update order status');
             }
         } catch (error) {
             console.error('Payment Success Handler Error:', error);
             Alert.alert('Error', 'Payment completed but failed to process order. Please contact support.');
         }
-    };
+    };        
 
     const handleWebViewNavigationStateChange = async (event) => {
         console.log('WebView Navigation:', event.url);
-
+    
         if (!event.url) return;
-
+    
         if (event.url.startsWith('clothesstore://')) {
             if (event.url.includes('payment-success')) {
                 console.log('Payment success URL detected');
                 const urlParams = new URLSearchParams(event.url.split('?')[1]);
                 const token = urlParams.get('token');
-
+    
                 if (token) {
                     console.log('Token extracted:', token);
-
-                    // Trước khi capture, kiểm tra trạng thái của đơn hàng
+    
                     try {
+                        // Kiểm tra trạng thái đơn hàng
                         const orderDetails = await getOrderDetails(token);
                         console.log('Order details:', orderDetails);
-
+    
                         if (orderDetails.status === 'APPROVED') {
                             // Nếu đơn hàng đã được phê duyệt, tiến hành capture
                             const captureResult = await captureOrder(token);
@@ -443,12 +449,9 @@ const PaymentScreen = () => {
                 } else {
                     Alert.alert('Error', 'Payment token not found.');
                 }
-            } else if (event.url.includes('payment-cancel')) {
-                console.log('Payment cancelled URL detected');
-                handlePaymentCancel();
             }
         }
-    };
+    };    
 
     return (
         <View style={styles.container}>

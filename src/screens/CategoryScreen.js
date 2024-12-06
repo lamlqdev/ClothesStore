@@ -138,14 +138,14 @@ function CategoryScreen({ navigation }) {
         onPress={() => navigation.navigate('ProductDetail', { productId: item.objectID })}
       >
         <Image source={{ uri: item.image }} style={styles.productImage} />
+        <Text style={styles.productName}>{item.name}</Text>
         <View style={styles.productInfo}>
-          <Text style={styles.productName}>{item.name}</Text>
+          <Text style={styles.productPrice}>${item.price}</Text>
           <View style={styles.productRating}>
             <Icon name="star" size={16} color="orange" />
             <Text style={styles.productRatingText}>{item.rating}</Text>
           </View>
         </View>
-        <Text style={styles.productPrice}>${item.price}</Text>
       </TouchableOpacity>
 
       {/* Biểu tượng wishlist trái tim */}

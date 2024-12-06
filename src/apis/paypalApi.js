@@ -33,11 +33,43 @@ export const getAccessToken = async () => {
     }
 };
 
-export const createOrder = async (amount, selectedProducts) => {
-    console.log('Creating PayPal order with amount:', amount);
+export const createOrder = async (validAmount, selectedProducts, discountTotal) => {
+    console.log('Creating PayPal order with total amount (after discounts):', validAmount);
+
+    // Kiểm tra và ép kiểu validAmount thành số thực
+    const totalAmount = parseFloat(validAmount);
+    if (isNaN(totalAmount)) {
+        console.error('Invalid totalAmount:', validAmount);
+        throw new Error('Invalid totalAmount passed to createOrder. It must be a valid number.');
+    }
+
     const accessToken = await getAccessToken();
     console.log('Access token obtained');
 
+    // Tính toán item_total (tổng tiền các sản phẩm trước giảm giá)
+    const itemTotal = selectedProducts.reduce(
+        (sum, item) => sum + (item.price * item.quantity),
+        0
+    ).toFixed(2);
+
+    // Log để kiểm tra giá trị của item_total và validAmount
+    console.log('Calculated item total (before discounts):', itemTotal);
+    console.log('Total amount after discount (validAmount):', validAmount);
+
+    // Các thành phần khác trong amount (thuế, phí vận chuyển, v.v.)
+    const taxTotal = 0.00;
+    const shippingTotal = 1.00;
+    
+    // Đảm bảo discountTotal không phải là undefined
+    const discount = discountTotal || 0.00;
+
+    // Tính tổng số tiền thanh toán từ các thành phần
+    const totalWithTaxesAndFees = parseFloat(itemTotal) + parseFloat(shippingTotal) - parseFloat(discount);
+
+    // Kiểm tra lại tổng số tiền
+    console.log('Calculated total with taxes and fees:', totalWithTaxesAndFees);
+
+    // Cấu hình payload
     const items = selectedProducts.map(item => {
         const productName = item.product?.name;
         const productDescription = item.product?.description || 'No description provided';
@@ -47,18 +79,21 @@ export const createOrder = async (amount, selectedProducts) => {
             throw new Error('Product name is required');
         }
 
+        if (typeof item.price !== 'number' || isNaN(item.price)) {
+            console.error('Invalid item price:', item.price);
+            throw new Error('Item price must be a valid number');
+        }
+
         return {
-            name: productName, // Tên sản phẩm
-            description: productDescription.slice(0, 127), // Rút gọn chuỗi description
-            quantity: item.quantity.toString(), // Số lượng
+            name: productName,
+            description: productDescription.slice(0, 127),
+            quantity: item.quantity.toString(),
             unit_amount: {
                 currency_code: 'USD',
-                value: item.price.toFixed(2), // Giá
+                value: item.price.toFixed(2),
             },
         };
     });
-
-    const totalAmount = selectedProducts.reduce((sum, p) => sum + p.quantity * p.price, 0).toFixed(2);
 
     const orderPayload = {
         intent: 'CAPTURE',
@@ -67,11 +102,23 @@ export const createOrder = async (amount, selectedProducts) => {
                 items: items,
                 amount: {
                     currency_code: 'USD',
-                    value: totalAmount, // Tổng số tiền của đơn hàng
+                    value: totalWithTaxesAndFees.toFixed(2), // Tổng số tiền thanh toán sau giảm giá
                     breakdown: {
                         item_total: {
                             currency_code: 'USD',
-                            value: totalAmount, // Tổng giá trị các sản phẩm
+                            value: itemTotal, // Tổng tiền sản phẩm trước giảm giá
+                        },
+                        tax_total: {
+                            currency_code: 'USD',
+                            value: taxTotal.toFixed(2), // Thuế nếu có
+                        },
+                        shipping: {
+                            currency_code: 'USD',
+                            value: shippingTotal.toFixed(2), // Phí vận chuyển nếu có
+                        },
+                        discount: {
+                            currency_code: 'USD',
+                            value: discount.toFixed(2), // Giảm giá nếu có
                         },
                     },
                 },
@@ -81,8 +128,8 @@ export const createOrder = async (amount, selectedProducts) => {
             return_url: "clothesstore://payment-success",
             cancel_url: "clothesstore://payment-cancel",
             brand_name: "ClothesStore",
-            user_action: "PAY_NOW"
-        }
+            user_action: "PAY_NOW",
+        },
     };
 
     console.log('Sending order request to PayPal with payload:', JSON.stringify(orderPayload));
@@ -149,6 +196,10 @@ export const captureOrder = async (orderId) => {
             const errorMessage = captureData.details?.[0]?.issue || 'Unknown error';
             console.error("Capture failed:", errorMessage);
             throw new Error(errorMessage);
+        }
+
+        if (captureData.status !== 'COMPLETED') {
+            throw new Error(`Capture failed: ${captureData.status}`);
         }
 
         console.log('Capture successful:', captureData);

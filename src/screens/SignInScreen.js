@@ -57,7 +57,7 @@ const SignInScreen = ({ navigation, onlogin }) => {
         await setDoc(doc(db, 'users', user.uid), {
           userId: user.uid,
           name: user.displayName || 'User',
-          membershipLevel: 'Normal Customer',
+          membershipLevel: 'IdQr4CRJclPYYKP00bDk',
           imageUrl: 'https://hoanghamobile.com/tin-tuc/wp-content/uploads/2024/03/avatar-trang-68.jpg',
           wishlist: [],
           cartlist: [],
@@ -90,7 +90,7 @@ const SignInScreen = ({ navigation, onlogin }) => {
         await setDoc(doc(db, 'users', user.uid), {
           userId: user.uid,
           name: user.displayName || 'User',
-          membershipLevel: 'Normal Customer',
+          membershipLevel: 'IdQr4CRJclPYYKP00bDk',
           imageUrl: 'https://hoanghamobile.com/tin-tuc/wp-content/uploads/2024/03/avatar-trang-68.jpg',
           wishlist: [],
           cartlist: [],

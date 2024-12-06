@@ -161,7 +161,6 @@ function HomeScreen({ navigation }) {
       });
     }, 1000); // Decrease the timer every second
 
-    // Cleanup the interval when component unmounts
     return () => clearInterval(timer);
   }, []);
 
@@ -174,24 +173,70 @@ function HomeScreen({ navigation }) {
   const totalPages = Math.ceil(products.length / ITEMS_PER_PAGE);
   const currentProducts = products.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE);
 
-  const renderPagination = () => (
-    <View style={styles.paginationContainer}>
-      <View style={styles.paginationInnerContainer}>
-        {[...Array(totalPages)].map((_, index) => {
-          const pageNumber = index + 1;
-          return (
+  const renderPagination = () => {
+    const pages = [];
+    const range = 2; // Số lượng trang hiển thị xung quanh trang hiện tại
+  
+    if (totalPages <= 3) {
+      for (let i = 1; i <= totalPages; i++) {
+        pages.push(i);
+      }
+    } else {
+      // Khi trang hiện tại là trang 1
+      if (currentPage === 1) {
+        pages.push(1, 2, 3, '...');
+      }
+      // Khi trang hiện tại là trang cuối cùng
+      else if (currentPage === totalPages) {
+        pages.push('...', totalPages - 2, totalPages - 1, totalPages);
+      }
+      // Khi trang hiện tại ở giữa các trang đầu và cuối
+      else {
+        pages.push(currentPage - 1, currentPage, currentPage + 1, '...');
+      }
+    }
+  
+    // Lọc dấu "..." dư thừa
+    const finalPages = pages.filter((page, index, arr) => {
+      // Loại bỏ dấu "..." nếu nó đứng trước hoặc sau một số trang không cần thiết
+      if (page === '...' && (arr[index - 1] === '...' || arr[index + 1] === '...')) {
+        return false;
+      }
+      return true;
+    });
+  
+    return (
+      <View style={styles.paginationContainer}>
+        <View style={styles.paginationInnerContainer}>
+          {finalPages.map((page, index) => (
             <TouchableOpacity
-              key={pageNumber}
-              style={[styles.pageButton, currentPage === pageNumber ? styles.activePageButton : styles.inactivePageButton]}
-              onPress={() => setCurrentPage(pageNumber)}
+              key={index}
+              style={[
+                styles.pageButton,
+                page === currentPage
+                  ? styles.activePageButton
+                  : styles.inactivePageButton,
+              ]}
+              onPress={() => {
+                if (page !== '...') {
+                  setCurrentPage(page);
+                }
+              }}
             >
-              <Text style={styles.pageButtonText}>{pageNumber}</Text>
+              <Text
+                style={[
+                  styles.pageButtonText,
+                  page === '...' ? { color: Colors.gray } : {},
+                ]}
+              >
+                {page}
+              </Text>
             </TouchableOpacity>
-          );
-        })}
+          ))}
+        </View>
       </View>
-    </View>
-  );
+    );
+  };          
 
   const renderHeader = () => (
     <View style={styles.headerContainer}>
@@ -202,7 +247,7 @@ function HomeScreen({ navigation }) {
         </View>
         <Icon name="bell" size={24} color="brown" style={styles.icon} onPress={() => navigation.navigate('Notification')} />
       </View>
-  
+
       <View style={styles.bannerContainer}>
         {topProducts.length > 0 && topProducts[currentBannerProductIndex] && (
           <>
@@ -220,34 +265,34 @@ function HomeScreen({ navigation }) {
           </>
         )}
       </View>
-  
+
       <View style={styles.categoryContainer}>
         <View style={styles.categoryHeader}>
           <Text style={styles.sectionTitle}>Category</Text>
         </View>
-        <ScrollView
-          horizontal
+        <FlatList
           showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.categories}
-        >
-          {categories.map(category => (
+          data={categories}
+          keyExtractor={item => item.id}
+          renderItem={({ item }) => (
             <TouchableOpacity
-              key={category.id}
               style={styles.category}
               onPress={() => {
                 navigation.navigate('Category', {
-                  title: category.name,
-                  categoryId: category.categoryId
+                  title: item.name,
+                  categoryId: item.categoryId,
                 });
               }}
             >
-              <FontAwesome5 name={category.icon} size={24} color="brown" />
-              <Text style={styles.categoryText}>{category.name}</Text>
+              <FontAwesome5 name={item.icon} size={24} color="brown" />
+              <Text style={styles.categoryText}>{item.name}</Text>
             </TouchableOpacity>
-          ))}
-        </ScrollView>
+          )}
+          numColumns={4} // Chia thành 4 cột
+          contentContainerStyle={styles.categories}
+        />
       </View>
-  
+
       <View style={styles.flashSaleContainer}>
         <View style={styles.flashSaleHeader}>
           <Text style={styles.sectionTitle}>Flash Sale</Text>
@@ -257,7 +302,7 @@ function HomeScreen({ navigation }) {
         </View>
       </View>
     </View>
-  );  
+  );
 
   const renderItem = ({ item }) => (
     <TouchableOpacity
@@ -394,6 +439,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: 10,
   },
   sectionTitle: {
     fontSize: 18,
@@ -401,14 +447,12 @@ const styles = StyleSheet.create({
     color: 'red'
   },
   categories: {
-    flexDirection: 'row',
-    marginTop: 16,
-    paddingHorizontal: 10,
+    justifyContent: 'space-between'
   },
   category: {
     alignItems: 'center',
-    width: 70,
-    marginHorizontal: 10,
+    width: '23%', // Mỗi mục chiếm 1/4 chiều rộng của màn hình, giữ lại một chút khoảng cách
+    marginBottom: 10,
   },
   categoryText: {
     marginTop: 8,
@@ -417,7 +461,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold'
   },
   flashSaleContainer: {
-    margin: 16
+    marginLeft: 16,
+    marginRight: 16
   },
   flashSaleHeader: {
     flexDirection: 'row',

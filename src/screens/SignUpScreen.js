@@ -33,7 +33,7 @@ const SignUpScreen = ({ navigation }) => {
       await firestore().collection('users').doc(user.uid).set({
         userId: user.uid,
         name: name,
-        membershipLevel: 'Normal Customer',
+        membershipLevel: 'IdQr4CRJclPYYKP00bDk',
         imageUrl: 'https://hoanghamobile.com/tin-tuc/wp-content/uploads/2024/03/avatar-trang-68.jpg',
         wishlist: [],
         cartlist: [],

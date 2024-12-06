@@ -12,10 +12,11 @@ const MyProfileScreen = ({ navigation }) => {
   const [defaultAddress, setDefaultAddress] = useState('');
   const [defaultPhone, setDefaultPhone] = useState('');
   const [membershipLevel, setMembershipLevel] = useState('');
+  const [membershipName, setMembershipName] = useState('');
+
 
   useFocusEffect(
     React.useCallback(() => {
-      // Gọi lại Firebase để lấy thông tin người dùng mỗi lần quay lại màn hình
       const getUserData = async () => {
         const userId = await AsyncStorage.getItem('userId');
         if (userId) {
@@ -24,7 +25,22 @@ const MyProfileScreen = ({ navigation }) => {
             setName(userDoc.data().name || '');
             setDefaultAddress(userDoc.data().defaultAddress || '');
             setDefaultPhone(userDoc.data().defaultPhone || '');
-            setMembershipLevel(userDoc.data().membershipLevel || 'Standard');
+            const userMembershipLevel = userDoc.data().membershipLevel || 'Standard';
+            setMembershipLevel(userMembershipLevel);
+
+            if (userMembershipLevel) {
+              const membershipDoc = await firestore()
+                .collection('Membership')
+                .doc(userMembershipLevel)
+                .get();
+
+              if (membershipDoc.exists) {
+                setMembershipName(membershipDoc.data().membershipName || 'Standard');
+              } else {
+                console.error('Membership not found for ID:', userMembershipLevel);
+                setMembershipName('Standard');
+              }
+            }
           }
         }
       };
@@ -56,7 +72,7 @@ const MyProfileScreen = ({ navigation }) => {
 
       <View style={styles.profileHeader}>
         <Text style={styles.membershipLevel}>
-          Membership Level: <Text style={styles.membershipText}>{membershipLevel}</Text>
+          Membership Level: <Text style={styles.membershipText}>{membershipName}</Text>
         </Text>
       </View>
 
@@ -135,7 +151,7 @@ const styles = StyleSheet.create({
   },
   membershipText: {
     fontWeight: 'bold',
-    color: Colors.primary,
+    color: 'red',
   },
   profileInfo: {
     marginBottom: 24,
