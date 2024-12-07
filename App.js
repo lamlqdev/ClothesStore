@@ -8,16 +8,37 @@ const App = () => {
   // Tạo tham chiếu navigation
   const navigationRef = createRef();
 
+  // Hàm để lấy các tham số từ URL query string
+  const getQueryParams = (url) => {
+    const queryParams = {};
+    const queryString = url.split('?')[1];
+
+    if (queryString) {
+      const params = queryString.split('&');
+      params.forEach(param => {
+        const [key, value] = param.split('=');
+        queryParams[key] = decodeURIComponent(value); // Giải mã tham số URL
+      });
+    }
+
+    return queryParams;
+  };
+
   useEffect(() => {
     const handleDeepLink = (event) => {
       const url = event.url;
       console.log('Deep link received:', url);
 
-      // Điều hướng dựa trên deep link
       if (url.includes('payment-success')) {
-        navigationRef.current?.navigate('PaymentSuccess');
+        // Lấy token và PayerID từ URL
+        const queryParams = getQueryParams(url); // Sử dụng hàm getQueryParams
+        const token = queryParams.token;
+        const payerId = queryParams.PayerID;
+
+        // Điều hướng đến màn hình PaymentSuccess và truyền token và payerId
+        navigationRef.current?.navigate('PaymentSuccess', { token, payerId });
       } else if (url.includes('payment-cancel')) {
-        navigationRef.current?.navigate('Payment');
+        navigationRef.current?.navigate('Payment', {closeWebView: true});
       }
     };
 

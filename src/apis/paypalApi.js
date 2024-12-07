@@ -1,6 +1,5 @@
 import config from '../../config';
 import { encode } from 'base-64';
-import { Alert } from 'react-native';
 
 const BASE_URL = `https://api-m.sandbox.paypal.com`;
 
@@ -163,21 +162,31 @@ export const createOrder = async (validAmount, selectedProducts, discountTotal) 
 export const getOrderDetails = async (orderId) => {
     const accessToken = await getAccessToken();
 
-    const response = await axios.get(
-        `https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderId}`,
-        {
-            headers: {
-                'Authorization': `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
+    try {
+        const response = await fetch(
+            `${BASE_URL}/v2/checkout/orders/${orderId}`,
+            {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${accessToken}`,
+                    'Content-Type': 'application/json'
+                }
             }
-        }
-    );
+        );
 
-    return response.data;
+        if (!response.ok) {
+            throw new Error('Failed to get order details');
+        }
+
+        const orderData = await response.json();
+        return orderData;
+    } catch (error) {
+        console.error('Error getting order details:', error);
+        throw error;
+    }
 };
 
 export const captureOrder = async (orderId) => {
-    console.log('Capturing PayPal order:', orderId);
     const accessToken = await getAccessToken();
 
     try {
@@ -190,47 +199,22 @@ export const captureOrder = async (orderId) => {
         });
 
         const captureData = await response.json();
-        console.log('Capture response:', captureData);
 
-        if (!response.ok) {
-            const errorMessage = captureData.details?.[0]?.issue || 'Unknown error';
-            console.error("Capture failed:", errorMessage);
-            throw new Error(errorMessage);
+        // Thêm logging chi tiết để hiểu rõ hơn về response
+        console.log('Full Capture Response:', JSON.stringify(captureData, null, 2));
+        console.log('Capture Purchase Units:', JSON.stringify(captureData.purchase_units, null, 2));
+        
+        // Kiểm tra trạng thái thanh toán chi tiết hơn
+        const paymentStatus = captureData.purchase_units?.[0]?.payments?.captures?.[0]?.status;
+        console.log('Payment Capture Status:', paymentStatus);
+
+        if (paymentStatus !== 'COMPLETED') {
+            throw new Error(`Payment not completed. Status: ${paymentStatus}`);
         }
 
-        if (captureData.status !== 'COMPLETED') {
-            throw new Error(`Capture failed: ${captureData.status}`);
-        }
-
-        console.log('Capture successful:', captureData);
         return captureData;
     } catch (error) {
-        console.error('Error in captureOrder:', error);
-        throw error;
-    }
-};
-
-export const executePayment = async (paymentId, payerId) => {
-    try {
-        const accessToken = await getAccessToken();
-        const response = await fetch(`${BASE_URL}/v1/payments/payment/${paymentId}/execute`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({ payer_id: payerId }),
-        });
-        console.log('Executing payment with paymentId:', paymentId, 'and payerId:', payerId);
-
-        if (!response.ok) {
-            throw new Error('Payment execution failed');
-        }
-
-        const executionData = await response.json();
-        return executionData;
-    } catch (error) {
-        console.error('Error executing payment:', error);
+        console.error('Detailed Capture Error:', error);
         throw error;
     }
 };

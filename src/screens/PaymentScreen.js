@@ -10,6 +10,7 @@ import firestore from '@react-native-firebase/firestore';
 import WebView from 'react-native-webview';
 import { createOrder, captureOrder, getOrderDetails } from '../apis/paypalApi';
 import CryptoJS from 'crypto-js';
+import { getQueryParams } from '../../App';
 
 const { PayZaloBridge } = NativeModules;
 const payZaloBridgeEmitter = new NativeEventEmitter(PayZaloBridge);
@@ -107,7 +108,7 @@ const PaymentScreen = () => {
         } finally {
             setLoading(false);
         }
-    };    
+    };
 
     const handleOrderSuccess = async (appTransId, orderId = null) => {
         console.log('Handling order success...');
@@ -352,25 +353,25 @@ const PaymentScreen = () => {
 
     const handlePaypalPayment = async (appTransId) => {
         if (isProcessing) return;
-    
-        setIsProcessing(true);    
+
+        setIsProcessing(true);
         try {
             const amount = totalAmount;
-    
+
             // Gọi createOrder để tạo giao dịch trên PayPal
             const orderData = await createOrder(amount, selectedProducts, discountValue);
             console.log('PayPal order created:', orderData);
-    
+
             const orderId = orderData.id; // Lưu ID đơn hàng từ PayPal
-    
+
             const approvalLink = orderData.links?.find(link => link.rel === 'approve')?.href;
             if (!approvalLink) {
                 throw new Error('No approval URL found in PayPal response');
             }
-    
+
             setApprovalUrl(approvalLink);
             setPaymentId(orderId);
-    
+
             // Lưu đơn hàng vào Firestore ngay sau khi tạo trên PayPal
             const orderSuccess = await handleOrderSuccess(appTransId, orderId);
             if (!orderSuccess) {
@@ -390,68 +391,68 @@ const PaymentScreen = () => {
     const handlePaymentSuccess = async (captureResult) => {
         try {
             console.log('Processing successful payment...', captureResult);
-            const orderId = captureResult.id; // Lấy lại orderId từ PayPal capture result
     
-            // Cập nhật trạng thái đơn hàng đã được thanh toán
-            const orderUpdateSuccess = await firestore()
+            const orderId = captureResult.id || paymentId;  // Lấy ID từ captureResult hoặc paymentId
+    
+            // Cập nhật trạng thái đơn hàng trong Firestore
+            await firestore()
                 .collection('Orders')
-                .doc(captureResult.id)
-                .update({ orderStatus: 'Paid' });
-    
-            if (orderUpdateSuccess) {
-                navigation.reset({
-                    index: 0,
-                    routes: [{ name: 'PaymentSuccess' }],
+                .doc(orderId)
+                .update({ 
+                    orderStatus: 'Active',
+                    updatedTime: firestore.FieldValue.serverTimestamp()
                 });
-            } else {
-                throw new Error('Failed to update order status');
-            }
+    
+            navigation.reset({
+                index: 0,
+                routes: [{ name: 'PaymentSuccess' }],
+            });
         } catch (error) {
             console.error('Payment Success Handler Error:', error);
             Alert.alert('Error', 'Payment completed but failed to process order. Please contact support.');
         }
-    };        
-
+    };    
+    
     const handleWebViewNavigationStateChange = async (event) => {
         console.log('WebView Navigation:', event.url);
     
-        if (!event.url) return;
+        // Thêm điều kiện dừng WebView khi đã chuyển hướng
+        if (event.url.startsWith('clothesstore://payment-success')) {
+            // Đóng WebView ngay lập tức
+            this.webviewRef?.stopLoading();
     
-        if (event.url.startsWith('clothesstore://')) {
-            if (event.url.includes('payment-success')) {
-                console.log('Payment success URL detected');
-                const urlParams = new URLSearchParams(event.url.split('?')[1]);
-                const token = urlParams.get('token');
+            try {
+                // Existing capture logic
+                const queryParams = getQueryParams(event.url);
+                const token = queryParams.token;
+                const payerId = queryParams.PayerID;
     
-                if (token) {
-                    console.log('Token extracted:', token);
+                const orderDetails = await getOrderDetails(token);
+                
+                // Log chi tiết để debug
+                console.log('Order Details Status:', orderDetails.status);
     
-                    try {
-                        // Kiểm tra trạng thái đơn hàng
-                        const orderDetails = await getOrderDetails(token);
-                        console.log('Order details:', orderDetails);
+                if (orderDetails.status === 'APPROVED') {
+                    const captureResult = await captureOrder(token);
     
-                        if (orderDetails.status === 'APPROVED') {
-                            // Nếu đơn hàng đã được phê duyệt, tiến hành capture
-                            const captureResult = await captureOrder(token);
-                            if (captureResult.status === 'COMPLETED') {
-                                await handlePaymentSuccess(captureResult);
-                            } else {
-                                throw new Error(`Capture failed with status: ${captureResult.status}, details: ${JSON.stringify(captureResult)}`);
-                            }
-                        } else {
-                            throw new Error('Order is not approved yet');
-                        }
-                    } catch (error) {
-                        console.error('Error in capturing order:', error);
-                        Alert.alert('Error', 'Failed to capture the payment. Please try again.');
+                    // Log chi tiết kết quả capture
+                    console.log('Capture Result Full:', JSON.stringify(captureResult, null, 2));
+    
+                    if (captureResult.status === 'COMPLETED') {
+                        await handlePaymentSuccess(captureResult);
+                    } else {
+                        throw new Error(`Capture failed: ${captureResult.status}`);
                     }
                 } else {
-                    Alert.alert('Error', 'Payment token not found.');
+                    throw new Error('Payment not approved');
                 }
+            } catch (error) {
+                console.error('Comprehensive Payment Error:', error);
+                Alert.alert('Payment Error', 'Detailed error: ' + error.message);
+                navigation.goBack();
             }
         }
-    };    
+    };           
 
     return (
         <View style={styles.container}>
@@ -466,8 +467,13 @@ const PaymentScreen = () => {
 
             {approvalUrl ? (
                 <WebView
+                    ref={(ref) => { this.webviewRef = ref; }}
                     source={{ uri: approvalUrl }}
                     onNavigationStateChange={handleWebViewNavigationStateChange}
+                    onError={(syntheticEvent) => {
+                        const { nativeEvent } = syntheticEvent;
+                        console.warn('WebView error: ', nativeEvent);
+                    }}
                     startInLoadingState
                     renderLoading={() => <ActivityIndicator size="large" color="#0070BA" />}
                 />
