@@ -141,7 +141,7 @@ const PaymentScreen = () => {
                 paypalOrderId: selectedOption === 'paypal' ? orderId : null, // Chỉ lưu orderId nếu là PayPal
                 paymentMethod: paymentMethod,
                 products: selectedProducts.map(product => ({
-                    productId: product.product.productId,
+                    productId: product.productId,
                     hasReviewed: false,
                     productName: product.product.name,
                     quantity: product.quantity,
@@ -160,13 +160,13 @@ const PaymentScreen = () => {
             // Giảm số lượng size sản phẩm đã mua
             const updateSizesPromises = selectedProducts.map(async (product) => {
                 await updateProductSizeQuantity(
-                    product.product.productId, // ID của sản phẩm
+                    product.productId, // ID của sản phẩm
                     product.size,              // Size được mua
                     product.quantity           // Số lượng mua
                 );
 
                 // Tăng số lượt bán (sale) cho sản phẩm
-                await increaseProductSale(product.product.productId, product.quantity);
+                await increaseProductSale(product.productId, product.quantity);
             });
 
             await Promise.all(updateSizesPromises);
@@ -280,7 +280,7 @@ const PaymentScreen = () => {
             const apptime = Math.floor(new Date().getTime());
             const embeddata = "{}";
             const item = JSON.stringify(selectedProducts.map(product => ({
-                itemid: product.product.productId,
+                itemid: product.productId,
                 itename: product.product.name,
                 itemprice: product.price,
                 itemquantity: product.quantity,

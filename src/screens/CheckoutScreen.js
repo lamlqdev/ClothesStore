@@ -56,53 +56,63 @@ const CheckoutScreen = () => {
 
   useEffect(() => {
     const fetchDiscountAndCalculateTotal = async () => {
-        if (userId && selectedProducts.length > 0) {
-            const userDoc = await firestore().collection('users').doc(userId).get();
-            const userData = userDoc.data();
-            
-            let discountValue = 0;
+      if (userId && selectedProducts.length > 0) {
+        const userDoc = await firestore().collection('users').doc(userId).get();
+        const userData = userDoc.data();
 
-            if (userData.membershipLevel) {
-                const membershipDoc = await firestore()
-                    .collection('Membership')
-                    .doc(userData.membershipLevel)
-                    .get();
+        let discountValue = 0;
 
-                if (membershipDoc.exists) {
-                    const membershipData = membershipDoc.data();
+        if (userData.membershipLevel) {
+          const membershipDoc = await firestore()
+            .collection('Membership')
+            .doc(userData.membershipLevel)
+            .get();
 
-                    discountValue = selectedProducts.reduce((sum, product) => sum + product.price * product.quantity, 0) * (membershipData.discountRate / 100);
-                } else {
-                    console.error("No Membership document found for ID:", userData.membershipLevel);
-                }
-            }
+          if (membershipDoc.exists) {
+            const membershipData = membershipDoc.data();
 
-            // Tính tổng giá trị sản phẩm
-            const subtotal = selectedProducts.reduce((sum, product) => sum + product.price * product.quantity, 0);
-            
-            // Tính tổng sau khi giảm giá
-            const totalWithDiscount = subtotal - discountValue;
-
-            const shippingFee = 1.00;
-            const finalAmount = totalWithDiscount + shippingFee;
-
-            // Cập nhật giá trị giảm giá và tổng số tiền
-            setDiscount(discountValue);
-            setTotalAmount(finalAmount.toFixed(2));
+            discountValue = selectedProducts.reduce((sum, product) => sum + product.price * product.quantity, 0) * (membershipData.discountRate / 100);
+          } else {
+            console.error("No Membership document found for ID:", userData.membershipLevel);
+          }
         }
+
+        // Tính tổng giá trị sản phẩm
+        const subtotal = selectedProducts.reduce((sum, product) => sum + product.price * product.quantity, 0);
+
+        // Tính tổng sau khi giảm giá
+        const totalWithDiscount = subtotal - discountValue;
+
+        const shippingFee = 1.00;
+        const finalAmount = totalWithDiscount + shippingFee;
+
+        // Cập nhật giá trị giảm giá và tổng số tiền
+        setDiscount(discountValue);
+        setTotalAmount(finalAmount.toFixed(2));
+      }
     };
 
     fetchDiscountAndCalculateTotal();
-}, [userId, selectedProducts]);
-      
+  }, [userId, selectedProducts]);
+
   const handlePlaceOrder = async () => {
     if (!address || !phone) {
       Alert.alert('Missing Information', 'Please make sure to select both an address and phone number.');
       return;
     }
 
-    navigation.navigate('Payment', { selectedProducts, selectedAddress: address, selectedPhone: phone, totalAmount: totalAmount, discountValue: discount });
+    console.log('Navigating to Payment screen with:');
+    console.log('Selected Products:', selectedProducts);
+
+    navigation.navigate('Payment', {
+      selectedProducts,
+      selectedAddress: address,
+      selectedPhone: phone,
+      totalAmount: totalAmount,
+      discountValue: discount,
+    });
   };
+
 
   const renderOrderItem = ({ item }) => (
     <View style={styles.orderItem}>
