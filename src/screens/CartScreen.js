@@ -74,6 +74,7 @@ const CartScreen = ({ navigation }) => {
             return {
               cartId: doc.id,
               product: productData,
+              productId: cartItem.productId,
               size: cartItem.size,
               quantity: cartItem.quantity,
               stock: sizeInfo.quantity || 0, // Thêm fallback value cho quantity
@@ -163,6 +164,7 @@ const CartScreen = ({ navigation }) => {
 
   const handleCheckout = () => {
     if (selectedItems.length > 0) {
+      console.log('Selected Products:', selectedItems);
       navigation.navigate('Checkout', { selectedProducts: selectedItems });
       setSelectedItems([]);
       setSelectAll(false);
