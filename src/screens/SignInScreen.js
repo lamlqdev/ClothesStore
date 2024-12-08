@@ -22,10 +22,23 @@ const SignInScreen = ({ navigation, onlogin }) => {
   };
 
   const handleSignIn = async () => {
+    // Kiểm tra nếu email hoặc mật khẩu trống
+    if (!email || !password) {
+      Alert.alert("Missing Information", "Please enter both email and password.");
+      return;
+    }
+  
+    // Kiểm tra định dạng email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert("Invalid Email", "Please enter a valid email address.");
+      return;
+    }
+  
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-
+  
       if (user.emailVerified) {
         await AsyncStorage.setItem('userId', user.uid); // Lưu userId vào AsyncStorage
         Alert.alert("Login Successful", `Welcome back, ${user.email}`);
@@ -39,6 +52,7 @@ const SignInScreen = ({ navigation, onlogin }) => {
       Alert.alert("Login Failed", error.message);
     }
   };
+  
 
   const onFacebookButtonPress = async () => {
     try {

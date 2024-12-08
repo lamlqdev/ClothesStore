@@ -1,67 +1,107 @@
-const functions = require('firebase-functions');
-const admin = require('firebase-admin');
-const CryptoJS = require('crypto-js');
+// Import the necessary modules
+const { onSchedule } = require("firebase-functions/v2/scheduler");
+const { logger } = require("firebase-functions");
+const admin = require("firebase-admin");
 
+// Initialize Firebase Admin SDK
 admin.initializeApp();
 
-const key2 = "trMrHtvjo6myautxDUiAcYsVtaeQ8nhf"; // Thay bằng key2 thật của bạn
+// Get the Firestore database instance
+const db = admin.firestore();
 
-exports.zaloPayCallback = functions.https.onRequest(async (req, res) => {
-  let result = {};
-
+// Define the scheduled function using onSchedule
+//exports.updateMembership = onSchedule("*/1 * * * *", async (event) => {
+exports.updateMembership = onSchedule("0 0 1 * *", async (event) => {
   try {
-    // Lấy dữ liệu từ request
-    let dataStr = req.body.data;
-    let reqMac = req.body.mac;
+    logger.log("Scheduled function updateMembership started.");
 
-    if (!dataStr || !reqMac) {
-      throw new Error("Dữ liệu không đầy đủ hoặc thiếu 'mac'");
+    // Fetch users and memberships data in parallel
+    const [usersSnapshot, membershipsSnapshot] = await Promise.all([
+      db.collection("users").get(),
+      db.collection("Membership").get(),
+    ]);
+
+    if (membershipsSnapshot.empty || usersSnapshot.empty) {
+      logger.error("No memberships or users found.");
+      return;
     }
 
-    // Tạo mã HMAC từ key2 và dữ liệu nhận được
-    let mac = CryptoJS.HmacSHA256(dataStr, key2).toString();
-    console.log("Generated MAC:", mac);
+    // Process memberships data
+    const memberships = membershipsSnapshot.docs.map((doc) => ({
+      id: doc.id,
+      ...doc.data(),
+    }));
 
-    // Kiểm tra tính hợp lệ của callback
-    if (reqMac !== mac) {
-      // Callback không hợp lệ
-      result.return_code = -1;
-      result.return_message = "Xác thực thất bại: MAC không khớp";
-    } else {
-      // Xử lý khi thanh toán thành công
-      let dataJson;
-      try {
-        dataJson = JSON.parse(dataStr);
-      } catch (parseError) {
-        throw new Error("Lỗi phân tích dữ liệu JSON: " + parseError.message);
+    // Calculate the date range for the past 6 months
+    const currentDate = new Date();
+    const startDate = new Date(currentDate);
+    startDate.setMonth(currentDate.getMonth() - 6);
+
+    // Fetch all orders within the last 6 months
+    const ordersSnapshot = await db
+      .collection("Orders")
+      .where("orderTime", ">=", startDate)
+      .where("orderTime", "<", currentDate)
+      .get();
+
+    // Create a map to group orders by userId
+    const ordersByUser = ordersSnapshot.docs.reduce((map, orderDoc) => {
+      const order = orderDoc.data();
+      if (!map[order.userId]) {
+        map[order.userId] = [];
       }
+      map[order.userId].push(order);
+      return map;
+    }, {});
 
-      console.log("Thanh toán thành công cho app_trans_id:", dataJson["app_trans_id"]);
+    // Process each user and update their membership if needed
+    await Promise.all(
+      usersSnapshot.docs.map(async (userDoc) => {
+        const userId = userDoc.id;
+        const userOrders = ordersByUser[userId] || []; // Get orders for the user
 
-      // Cập nhật trạng thái đơn hàng trong Firestore
-      const orderId = dataJson["app_trans_id"];
-      const ordersRef = admin.firestore().collection('Orders').doc(orderId);
+        // Calculate total spending for completed orders
+        const totalSpent = userOrders
+          .filter((order) => order.orderStatus === "Completed")
+          .reduce((sum, order) => sum + (order.total || 0), 0);
 
-      try {
-        await ordersRef.update({ status: 'Active' });
-        result.return_code = 1;
-        result.return_message = "Cập nhật trạng thái đơn hàng thành công";
-      } catch (dbError) {
-        console.error("Lỗi khi cập nhật đơn hàng trong Firestore:", dbError);
-        result.return_code = 0;
-        result.return_message = "Lỗi khi cập nhật đơn hàng: " + dbError.message;
-      }
-    }
-  } catch (ex) {
-    console.error("Exception:", ex.message);
-    // Trả lỗi cụ thể cho ZaloPay server
-    result.return_code = 0; // ZaloPay server sẽ callback lại nếu trả mã 0
-    result.return_message = "Lỗi hệ thống: " + ex.message;
+        if (totalSpent === 0) {
+          logger.log(`User ${userId} has no completed orders in the past 6 months.`);
+          return;
+        }
+
+        // Find the best membership option
+        let bestMembership = null;
+        let minDifference = Infinity;
+
+        memberships.forEach((membership) => {
+          const minimumSpend = membership.minimumSpend || 0;
+          const diff = totalSpent - minimumSpend;
+          if (diff >= 0 && diff < minDifference) {
+            minDifference = diff;
+            bestMembership = membership.id;
+          }
+        });
+
+        if (!bestMembership) {
+          logger.log(`User ${userId} does not qualify for any membership.`);
+          return;
+        }
+
+        // Update membership level if necessary
+        if (userDoc.data().membershipLevel !== bestMembership) {
+          await db.collection("users").doc(userId).update({ membershipLevel: bestMembership });
+          logger.log(`Updated membership for user ${userId} to ${bestMembership}`);
+        }
+      })
+    );
+
+    logger.log("Membership update completed successfully.");
+  } catch (error) {
+    logger.error("Error updating memberships:", error);
   }
-
-  // Trả kết quả về cho ZaloPay server
-  res.json(result);
 });
+
 
 
 
