@@ -11,7 +11,7 @@ import { Fonts } from '../constants/fonts';
 import ReviewInput from '../components/ReviewInput';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import firestore from '@react-native-firebase/firestore';
-import { readFile } from 'react-native-image-base64';
+import RNFS from 'react-native-fs';
 
 const RatingStars = ({ onRatingChange }) => {
     const [rating, setRating] = useState(0);
@@ -42,7 +42,7 @@ const RatingStars = ({ onRatingChange }) => {
 const LeaveReviewScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
-    const { order } = route.params;
+    const { order, product } = route.params;
 
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
@@ -58,7 +58,7 @@ const LeaveReviewScreen = () => {
 
             // Lưu ảnh Base64 vào Firestore
             await firestore().collection('Reviews').add({
-                productId: order.productId,
+                productId: product.productId,
                 userId,
                 rating,
                 comment,
@@ -73,7 +73,7 @@ const LeaveReviewScreen = () => {
     };
 
     const updateProductRating = async () => {
-        const productRef = firestore().collection('Products').doc(order.productId);
+        const productRef = firestore().collection('Products').doc(product.productId);
         await firestore().runTransaction(async transaction => {
             const productDoc = await transaction.get(productRef);
             if (!productDoc.exists) throw new Error('Product does not exist.');
@@ -103,14 +103,14 @@ const LeaveReviewScreen = () => {
                     throw new Error('Products field is missing or invalid.');
                 }
 
-                const updatedProducts = products.map(product => {
-                    if (product.productId === order.productId) {
+                const updatedProducts = products.map(prod => {
+                    if (prod.productId === product.productId) {
                         return {
-                            ...product,
+                            ...prod,
                             hasReviewed: true,
                         };
                     }
-                    return product;
+                    return prod;
                 });
 
                 transaction.update(orderRef, { products: updatedProducts });
@@ -141,22 +141,25 @@ const LeaveReviewScreen = () => {
             maxWidth: 300,
             maxHeight: 300,
             quality: 1,
+            includeBase64: true
         };
 
-        launchImageLibrary(options, async (response) => {
+        launchImageLibrary(options, (response) => {
+            console.log("Image picker response:", response);  // Xem phản hồi từ Image Picker
+
             if (response.didCancel) {
                 console.log('User cancelled image picker');
             } else if (response.errorMessage) {
                 console.log('ImagePicker Error: ', response.errorMessage);
             } else if (response.assets && response.assets.length > 0) {
-                const uri = response.assets[0].uri;
-                
-                // Chuyển URI thành Base64
-                try {
-                    const base64Image = await readFile(uri, 'base64');
-                    setImage(base64Image); // Lưu Base64 vào state
-                } catch (error) {
-                    console.error('Failed to convert image to Base64:', error);
+                const selectedImage = response.assets[0];
+
+                // Kiểm tra nếu Base64 tồn tại trong phản hồi
+                if (selectedImage.base64) {
+                    console.log("Selected image base64:", selectedImage.base64); // In Base64 ra console
+                    setImage(`data:image/jpeg;base64,${selectedImage.base64}`);  // Cập nhật state image
+                } else {
+                    console.log("No Base64 data found for the image.");
                 }
             }
         });
@@ -168,15 +171,15 @@ const LeaveReviewScreen = () => {
                 <Header title="Leave Review" style={styles.header} onBackPress={() => navigation.goBack()} />
                 <OrderList
                     orderList={[{
-                        id: order.orderId,
-                        productId: order.productId,
-                        productImage: order.productImage,
-                        productName: order.productName,
-                        size: order.size,
-                        quantity: order.quantity,
-                        price: order.price,
+                        id: order.id,
+                        productId: product.productId,
+                        productImage: product.productImage,
+                        productName: product.productName,
+                        size: product.size,
+                        quantity: product.quantity,
+                        price: product.price,
                         buttonText: 'Reorder',
-                        key: `${order.id}_${order.productId}`,
+                        key: `${order.id}_${product.productId}`,
                     }]}
 
                     onClickButton={(orderItem) => {
@@ -187,18 +190,22 @@ const LeaveReviewScreen = () => {
                         }
                     }}
                 />
+
                 <Separator />
                 <Text style={styles.textQuestion}>How is your Order</Text>
                 <Separator />
                 <RatingStars onRatingChange={setRating} />
                 <Separator />
                 <ReviewInput onCommentChange={setComment} />
-                
+
                 <TouchableOpacity style={styles.addPhotoButton} onPress={pickImage}>
                     <Icon name="camera" size={20} color={Colors.Brown} />
                     <Text style={styles.addPhotoText}>Add photo</Text>
                 </TouchableOpacity>
-                {image && <Image source={{ uri: `data:image/jpeg;base64,${image}` }} style={styles.imagePreview} />}
+                {image && (
+                    <Image source={{ uri: image }} style={styles.imagePreview} />
+                )}
+
             </View>
             <View style={styles.buttonContainer}>
                 <TouchableOpacity style={styles.cancelButton} onPress={() => navigation.goBack()}>

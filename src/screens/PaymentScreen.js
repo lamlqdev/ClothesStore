@@ -92,10 +92,7 @@ const PaymentScreen = () => {
             } else if (selectedOption === 'cod') {
                 const orderSuccess = await handleOrderSuccess(appTransId);
                 if (orderSuccess) {
-                    navigation.reset({
-                        index: 0,
-                        routes: [{ name: 'PaymentSuccess' }],
-                    });
+                    navigation.navigate('PaymentSuccess');
                 } else {
                     Alert.alert('Error', 'Failed to create order.');
                 }
@@ -164,13 +161,10 @@ const PaymentScreen = () => {
                     product.size,              // Size được mua
                     product.quantity           // Số lượng mua
                 );
-
-                // Tăng số lượt bán (sale) cho sản phẩm
-                await increaseProductSale(product.productId, product.quantity);
             });
 
             await Promise.all(updateSizesPromises);
-            console.log('Product sizes and sales updated successfully.');
+            console.log('Product sizes updated successfully.');
 
             // Delete each product from 'Cart' and update 'cartlist' in 'users'
             const deleteCartPromises = selectedProducts.map(async (product) => {
@@ -212,31 +206,6 @@ const PaymentScreen = () => {
             console.log(`Updated size quantity for product ${productId}:`, updatedSizelist);
         } catch (error) {
             console.error(`Error updating size quantity for product ${productId}:`, error);
-        }
-    };
-
-    // Hàm tăng số lượt bán (sale) của sản phẩm
-    const increaseProductSale = async (productId, quantitySold) => {
-        try {
-            const productRef = firestore().collection('Products').doc(productId);
-            const productDoc = await productRef.get();
-
-            if (!productDoc.exists) {
-                console.error(`Product with ID ${productId} does not exist.`);
-                return;
-            }
-
-            const productData = productDoc.data();
-            const currentSale = productData.sale || 0; // Lấy giá trị sale hiện tại, mặc định là 0 nếu chưa có
-
-            // Cập nhật số lượt bán
-            await productRef.update({
-                sale: currentSale + quantitySold
-            });
-
-            console.log(`Updated sale for product ${productId}: ${currentSale + quantitySold}`);
-        } catch (error) {
-            console.error(`Error updating sale for product ${productId}:`, error);
         }
     };
 
@@ -416,26 +385,22 @@ const PaymentScreen = () => {
     const handleWebViewNavigationStateChange = async (event) => {
         console.log('WebView Navigation:', event.url);
     
-        // Thêm điều kiện dừng WebView khi đã chuyển hướng
         if (event.url.startsWith('clothesstore://payment-success')) {
-            // Đóng WebView ngay lập tức
-            this.webviewRef?.stopLoading();
     
             try {
-                // Existing capture logic
                 const queryParams = getQueryParams(event.url);
                 const token = queryParams.token;
                 const payerId = queryParams.PayerID;
     
+                console.log('WebView Deep Link Params:', { token, payerId });
+    
                 const orderDetails = await getOrderDetails(token);
                 
-                // Log chi tiết để debug
                 console.log('Order Details Status:', orderDetails.status);
     
                 if (orderDetails.status === 'APPROVED') {
                     const captureResult = await captureOrder(token);
     
-                    // Log chi tiết kết quả capture
                     console.log('Capture Result Full:', JSON.stringify(captureResult, null, 2));
     
                     if (captureResult.status === 'COMPLETED') {

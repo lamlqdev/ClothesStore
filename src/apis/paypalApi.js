@@ -200,16 +200,23 @@ export const captureOrder = async (orderId) => {
 
         const captureData = await response.json();
 
-        // Thêm logging chi tiết để hiểu rõ hơn về response
+        // Log toàn bộ response để debug
         console.log('Full Capture Response:', JSON.stringify(captureData, null, 2));
-        console.log('Capture Purchase Units:', JSON.stringify(captureData.purchase_units, null, 2));
-        
-        // Kiểm tra trạng thái thanh toán chi tiết hơn
-        const paymentStatus = captureData.purchase_units?.[0]?.payments?.captures?.[0]?.status;
-        console.log('Payment Capture Status:', paymentStatus);
 
-        if (paymentStatus !== 'COMPLETED') {
-            throw new Error(`Payment not completed. Status: ${paymentStatus}`);
+        // Kiểm tra nhiều trường hợp có thể xảy ra
+        if (!response.ok) {
+            console.error('Capture Failed:', captureData);
+            throw new Error(captureData.message || 'Capture order failed');
+        }
+
+        const paymentStatus = captureData.status;
+        const captureStatus = captureData.purchase_units?.[0]?.payments?.captures?.[0]?.status;
+
+        console.log('Order Status:', paymentStatus);
+        console.log('Payment Capture Status:', captureStatus);
+
+        if (paymentStatus !== 'COMPLETED' || captureStatus !== 'COMPLETED') {
+            throw new Error(`Payment not completed. Order Status: ${paymentStatus}, Capture Status: ${captureStatus}`);
         }
 
         return captureData;

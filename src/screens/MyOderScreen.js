@@ -3,7 +3,7 @@ import { View, StatusBar, Text, StyleSheet, TouchableOpacity, ActivityIndicator,
 import { useNavigation, useIsFocused } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Header from '../components/Header';
-import OrderList from '../components/OrderList';
+import OrderCard from '../components/OrderCard';
 import { Colors } from '../constants/colors';
 import { spacing } from '../constants/dimensions';
 import { Fonts } from '../constants/fonts';
@@ -48,11 +48,18 @@ const MyOrderScreen = () => {
                     orderStatus: data.orderStatus,
                     products: data.products || [],
                     orderTime: data.orderTime.toDate(), // Ensure orderTime is a Date object
+                    appTransId: data.appTransId,
+                    total: data.total || 0
                 };
             });
 
-            // Sort orders by orderTime (newest to oldest)
-            orders.sort((a, b) => b.orderTime - a.orderTime);
+            // Sort orders by orderTime (newest to oldest) and then by appTransId
+            orders.sort((a, b) => {
+                if (b.orderTime - a.orderTime === 0) {
+                    return a.appTransId.localeCompare(b.appTransId);
+                }
+                return b.orderTime - a.orderTime;
+            });
 
             // Categorize orders by status
             const active = orders.filter(order =>
@@ -73,8 +80,7 @@ const MyOrderScreen = () => {
         }
     };
 
-    // Group orders by order date
-    const groupOrdersByDate = (orders) => {
+    const groupOrdersByDateAndTransId = (orders) => {
         return orders.reduce((groups, order) => {
             const dateKey = order.orderTime.toLocaleDateString(); // Use the date part of orderTime
             if (!groups[dateKey]) {
@@ -118,62 +124,74 @@ const MyOrderScreen = () => {
 
     const renderOrderList = (orders, onClickButton) => {
         const orderList = [];
+    
         orders.forEach(order => {
-            order.products.forEach(product => {
-                const key = `${order.id}_${product.productId}`;
-
-                let buttonText = '';
-                if (order.orderStatus === 'Completed') {
-                    buttonText = product.hasReviewed ? 'Reorder' : 'Leave Review';
-                } else {
-                    buttonText = 'Track Order';
-                }
-
-                orderList.push({
-                    ...order,
-                    ...product,
-                    buttonText,
-                    key,
-                });
+            const totalAmount = !isNaN(order.total) ? parseFloat(order.total) : 0;
+    
+            orderList.push({
+                ...order,
+                totalAmount,
+                key: order.id,
             });
         });
-
-        if (orderList.length === 0) {
-            return <Text style={styles.emptyText}>No orders found.</Text>;
-        }
-
+    
         return (
-            <OrderList
-                orderList={orderList}
-                onClickButton={(item) => {
-                    if (item.buttonText === 'Reorder') {
-                        handleReorder(item.productId);
-                    } else {
-                        onClickButton(item);
-                    }
-                }}
-            />
+            <View style={styles.orderListContainer}>
+                {orderList.map(order => (
+                    <View key={order.key} style={styles.orderItemContainer}>
+                        <View style={styles.totalContainer}>
+                            <Text style={styles.orderTotalText}>
+                                Total: ${order.totalAmount.toFixed(2)}
+                            </Text>
+                        </View>
+    
+                        <View style={styles.orderProductsContainer}>
+                            {order.products.map((product, index) => {
+                                let buttonText = '';
+    
+                                if (order.orderStatus === 'Completed') {
+                                    // Nếu sản phẩm đã được đánh giá, nút là "Reorder", nếu chưa thì là "Leave Review"
+                                    buttonText = product.hasReviewed ? 'Reorder' : 'Leave Review';
+                                } else {
+                                    // Nếu trạng thái đơn hàng chưa hoàn thành, nút là "Track Order"
+                                    buttonText = 'Track Order';
+                                }
+    
+                                return (
+                                    <OrderCard
+                                        key={index}
+                                        productImage={product.productImage}
+                                        productName={product.productName}
+                                        size={product.size}
+                                        quantity={product.quantity}
+                                        price={product.price}
+                                        buttonText={buttonText}
+                                        onClickButton={() => onClickButton(order, product)} // Truyền cả order và sản phẩm vào đây
+                                    />
+                                );
+                            })}
+                        </View>
+                    </View>
+                ))}
+            </View>
         );
-    };
-
+    };    
+    
     const getOrderData = () => {
         switch (activeTab) {
             case 'all':
                 return {
                     orders: allOrders,
-                    onClickButton: (order) => {
-                        // Kiểm tra đơn hàng đã hoàn thành chưa
+                    onClickButton: (order, product) => {
                         if (order.orderStatus === 'Completed') {
-                            // Kiểm tra tất cả sản phẩm trong đơn hàng đã được đánh giá chưa
-                            const hasUnreviewedProduct = order.products.some(product => !product.hasReviewed);
-                            
-                            // Nếu có sản phẩm chưa được đánh giá, điều hướng tới LeaveReview
-                            if (hasUnreviewedProduct) {
-                                const orderData = { ...order, orderTime: order.orderTime.toISOString() };
-                                navigation.navigate('LeaveReview', { order: orderData });
+                            // Kiểm tra nếu sản phẩm đã được đánh giá
+                            if (product.hasReviewed) {
+                                // Nếu đã đánh giá, điều hướng đến ProductDetail (Reorder)
+                                navigation.navigate('ProductDetail', { productId: product.productId });
                             } else {
-                                // Nếu tất cả sản phẩm đã được đánh giá, điều hướng tới ProductDetail
-                                navigation.navigate('ProductDetail', { productId: order.products[0].productId });
+                                // Nếu chưa đánh giá, điều hướng tới LeaveReview
+                                const orderData = { ...order, orderTime: order.orderTime.toISOString() };
+                                navigation.navigate('LeaveReview', { order: orderData, product: product });
                             }
                         } else {
                             // Nếu trạng thái đơn hàng là Active hoặc Waiting for payment, điều hướng đến TrackOrder
@@ -186,41 +204,35 @@ const MyOrderScreen = () => {
                 return {
                     orders: activeOrders,
                     onClickButton: (order) => {
-                        // Khi đơn hàng có trạng thái "Active", điều hướng tới TrackOrder
-                        navigation.navigate('TrackOrder', { order });
+                        handleTrackOrder(order);
                     },
                 };
-        
+    
             case 'completed':
                 return {
                     orders: completedOrders,
-                    onClickButton: (order) => {
-                        // Kiểm tra tất cả sản phẩm đã được đánh giá hay chưa
-                        const allReviewed = order.products.every(product => product.hasReviewed);
-        
-                        if (allReviewed) {
-                            // Nếu tất cả sản phẩm đã được đánh giá, điều hướng tới ProductDetail
-                            navigation.navigate('ProductDetail', { productId: order.products[0].productId });
+                    onClickButton: (order, product) => {
+                        if (product.hasReviewed) {
+                            // Nếu sản phẩm đã được đánh giá, điều hướng tới ProductDetail (Reorder)
+                            navigation.navigate('ProductDetail', { productId: product.productId });
                         } else {
-                            // Nếu chưa, điều hướng tới LeaveReview
+                            // Nếu chưa đánh giá, điều hướng tới LeaveReview
                             const orderData = { ...order, orderTime: order.orderTime.toISOString() };
-                            navigation.navigate('LeaveReview', { order: orderData });
+                            navigation.navigate('LeaveReview', { order: orderData, product: product });
                         }
                     },
                 };
-        
+    
             case 'cancelled':
                 return { orders: cancelledOrders, onClickButton: handleReorder };
-        
+    
             default:
                 return { orders: [], onClickButton: () => {} };
         }
-    };                  
+    };                
 
     const { orders, onClickButton } = getOrderData();
-
-    // Group orders by date
-    const groupedOrders = groupOrdersByDate(orders);
+    const groupedOrders = groupOrdersByDateAndTransId(orders);
 
     return (
         <View style={styles.container}>
@@ -294,5 +306,33 @@ const styles = StyleSheet.create({
     },
     scrollViewContainer: {
         paddingBottom: spacing.md,
+    },
+    orderItemContainer: {
+        padding: spacing.sm,
+        backgroundColor: Colors.White,
+        borderRadius: 8,
+        marginBottom: spacing.sm,
+        borderWidth: 1,
+        borderColor: Colors.LightGray,
+        position: 'relative',
+        marginBottom: 16,
+    },
+    orderProductsContainer: {
+        marginTop: spacing.sm,
+        marginBottom: spacing.md,
+    },
+    totalContainer: {
+        alignItems: 'flex-end',
+        marginBottom: 8,
+    },
+    orderTotalText: {
+        fontSize: 18,
+        fontFamily: Fonts.interBold,
+        color: Colors.Brown,
+        textAlign: 'right',
+        marginBottom: spacing.sm,
+    },
+    orderListContainer: {
+        marginBottom: spacing.sm,
     },
 });

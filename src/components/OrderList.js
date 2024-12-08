@@ -18,6 +18,7 @@ const OrderList = ({ orderList, onClickButton }) => {
     />
   );
 
+
   return (
     <FlatList
       data={orderList}
@@ -25,7 +26,7 @@ const OrderList = ({ orderList, onClickButton }) => {
       keyExtractor={(item) => item.key}
       ItemSeparatorComponent={() => <View style={styles.separator} />}
       contentContainerStyle={styles.contentContainer}
-      initialNumToRender={5} 
+      initialNumToRender={5}
       windowSize={10}
       showsVerticalScrollIndicator={false}
       style={styles.container}

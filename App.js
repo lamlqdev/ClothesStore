@@ -26,35 +26,43 @@ const App = () => {
 
   useEffect(() => {
     const handleDeepLink = (event) => {
-      const url = event.url;
-      console.log('Deep link received:', url);
+        const url = event.url;
+        console.log('Deep link received:', url);
 
-      if (url.includes('payment-success')) {
-        // Lấy token và PayerID từ URL
-        const queryParams = getQueryParams(url); // Sử dụng hàm getQueryParams
-        const token = queryParams.token;
-        const payerId = queryParams.PayerID;
+        if (url.includes('payment-success')) {
+            const queryParams = getQueryParams(url);
+            const token = queryParams.token;
+            const payerId = queryParams.PayerID;
 
-        // Điều hướng đến màn hình PaymentSuccess và truyền token và payerId
-        navigationRef.current?.navigate('PaymentSuccess', { token, payerId });
-      } else if (url.includes('payment-cancel')) {
-        navigationRef.current?.navigate('Payment', {closeWebView: true});
-      }
+            console.log('Deep Link Params:', { token, payerId });
+
+            // Đảm bảo navigation được thực hiện
+            if (navigationRef.current) {
+                navigationRef.current.navigate('PaymentSuccess', { token, payerId });
+            } else {
+                console.error('Navigation ref is not available');
+            }
+        } else if (url.includes('payment-cancel')) {
+            // Đảm bảo navigation được thực hiện khi cancel
+            if (navigationRef.current) {
+                navigationRef.current.navigate('Payment', { closeWebView: true });
+            }
+        }
     };
 
+    // Đăng ký và xử lý deep link
     const subscription = Linking.addEventListener('url', handleDeepLink);
 
-    // Xử lý URL khi ứng dụng được khởi động từ deep link
     Linking.getInitialURL().then((url) => {
-      if (url) {
-        handleDeepLink({ url });
-      }
+        if (url) {
+            handleDeepLink({ url });
+        }
     });
 
     return () => {
-      subscription.remove();
+        subscription.remove();
     };
-  }, []);
+}, []);
 
   return (
     <NavigationContainer ref={navigationRef}>
