@@ -8,23 +8,32 @@ const SendEmailScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
 
   const handleNext = async () => {
-    if (email) {
-      setLoading(true);
-      try {
-        // Gửi email reset password qua Firebase Auth
-        await auth().sendPasswordResetEmail(email);
-        setLoading(false);
-        Alert.alert('Email Sent', 'Please check your email to reset your password.');
-        // Sau khi gửi email thành công, điều hướng đến màn hình nhập mã xác nhận
-        navigation.navigate('SignIn', { email });
-      } catch (error) {
-        setLoading(false);
-        Alert.alert('Error', error.message);
-      }
-    } else {
-      Alert.alert('Validation', 'Please enter your email.');
+    if (!email) {
+      Alert.alert('Missing Information', 'Please enter your email.');
+      return;
+    }
+  
+    // Kiểm tra định dạng email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+  
+    setLoading(true);
+    try {
+      // Gửi email reset password qua Firebase Auth
+      await auth().sendPasswordResetEmail(email);
+      setLoading(false);
+      Alert.alert('Email Sent', 'Please check your email to reset your password.');
+      // Sau khi gửi email thành công, điều hướng đến màn hình nhập mã xác nhận
+      navigation.navigate('SignIn', { email });
+    } catch (error) {
+      setLoading(false);
+      Alert.alert('Error', error.message);
     }
   };
+  
 
   return (
     <View style={styles.container}>

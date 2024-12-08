@@ -13,22 +13,37 @@ const SignUpScreen = ({ navigation }) => {
   };
 
   const handleSignUp = async () => {
-    if (email === '' || password === '' || name === '') {
-      Alert.alert('Error', 'All fields are required');
+    // Kiểm tra nếu các trường bị bỏ trống
+    if (!name || !email || !password) {
+      Alert.alert('Missing Information', 'All fields are required.');
       return;
     }
+  
+    // Kiểm tra định dạng email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+  
+    // Kiểm tra độ dài mật khẩu
+    if (password.length < 6) {
+      Alert.alert('Invalid Password', 'Password must be at least 6 characters long.');
+      return;
+    }
+  
     try {
       const userCredential = await auth().createUserWithEmailAndPassword(email, password);
       const user = userCredential.user;
-
+  
       // Cập nhật tên người dùng
       await user.updateProfile({
         displayName: name,
       });
-
+  
       // Gửi email xác nhận
       await user.sendEmailVerification();
-
+  
       // Lưu thông tin người dùng vào Firestore
       await firestore().collection('users').doc(user.uid).set({
         userId: user.uid,
@@ -40,7 +55,7 @@ const SignUpScreen = ({ navigation }) => {
         phonelist: [],
         addresslist: [],
       });
-
+  
       Alert.alert('Success', 'Please verify your email address.');
       navigation.navigate('SignIn');
     } catch (error) {
@@ -48,6 +63,7 @@ const SignUpScreen = ({ navigation }) => {
       Alert.alert('Error', error.message);
     }
   };
+  
 
   return (
     <View style={styles.container}>
