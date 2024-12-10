@@ -31,72 +31,85 @@ const CartScreen = ({ navigation }) => {
   useFocusEffect(
     useCallback(() => {
       if (!userId) return;
-
-      const unsubscribe = firestore()
-        .collection('Cart')
-        .where('userId', '==', userId)
-        .onSnapshot(snapshot => {
-          if (snapshot.empty) {
-            console.log("No items in the cart");
+  
+      const fetchCartListAndProducts = async () => {
+        try {
+          // Lấy cartlist của người dùng từ tài liệu người dùng trong Firestore
+          const userDoc = await firestore().collection('users').doc(userId).get();
+          const userData = userDoc.data();
+          let cartlist = userData?.cartlist || [];
+  
+          // Đảo ngược thứ tự của cartlist
+          cartlist = cartlist.reverse();
+  
+          if (cartlist.length === 0) {
+            console.log('User has no items in the cart.');
             setCartItems([]);
             setLoading(false);
             return;
           }
-
-          const cartData = snapshot.docs.map(async (doc) => {
-            const cartItem = doc.data();
+  
+          // Lấy dữ liệu giỏ hàng từ Firestore và lọc các sản phẩm có cartId trong cartlist
+          const cartData = cartlist.map(async (cartId) => {
+            const cartDoc = await firestore().collection('Cart').doc(cartId).get();
+            const cartItem = cartDoc.data();
+  
+            if (!cartItem) {
+              console.warn('Cart item not found:', cartId);
+              return null;
+            }
+  
             const productDoc = await firestore()
               .collection('Products')
               .doc(cartItem.productId)
               .get();
-
+  
             if (!productDoc.exists) {
               console.warn('Product not found:', cartItem.productId);
               return null;
             }
-
+  
             const productData = productDoc.data();
-
+  
             // Kiểm tra sizelist có tồn tại và là mảng không
             if (!productData.sizelist || !Array.isArray(productData.sizelist)) {
               console.warn('Invalid sizelist for product:', cartItem.productId);
               return null;
             }
-
-            // Tìm thông tin size và quantity từ sizelist
-            const sizeInfo = productData.sizelist.find(item => item && item.size === cartItem.size);
-
+  
+            const sizeInfo = productData.sizelist.find(item => item.size === cartItem.size);
+  
             if (!sizeInfo) {
-              console.warn('Size not found:', cartItem.size, 'for product:', cartItem.productId);
+              console.warn('Size not found for product:', cartItem.productId);
               return null;
             }
-
+  
             return {
-              cartId: doc.id,
+              cartId,
               product: productData,
               productId: cartItem.productId,
               size: cartItem.size,
               quantity: cartItem.quantity,
-              stock: sizeInfo.quantity || 0, // Thêm fallback value cho quantity
+              stock: sizeInfo?.quantity || 0, // Fallback for stock
               price: productData.price,
             };
           });
-
-          Promise.all(cartData).then(items => {
-            setCartItems(items.filter(item => item !== null));
-            setLoading(false);
-          }).catch(error => {
-            console.error('Error loading cart items: ', error);
-            setLoading(false);
-          });
-        }, (error) => {
-          console.error("Error in onSnapshot: ", error);
+  
+          // Chờ tất cả các sản phẩm trong cartlist
+          const items = await Promise.all(cartData);
+          setCartItems(items.filter(item => item !== null));
           setLoading(false);
-        });
-
-      return () => unsubscribe();
+  
+        } catch (error) {
+          console.error('Error fetching cartlist and products:', error);
+          setLoading(false);
+        }
+      };
+  
+      fetchCartListAndProducts();
     }, [userId])
   );
+  
 
   const handleQuantityChange = (cartId, newQuantity, stock) => {
     if (newQuantity < 1 || newQuantity > stock) {

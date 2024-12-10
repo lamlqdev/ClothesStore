@@ -11,10 +11,9 @@ import { Fonts } from '../constants/fonts';
 import ReviewInput from '../components/ReviewInput';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import firestore from '@react-native-firebase/firestore';
-import RNFS from 'react-native-fs';
 
 const RatingStars = ({ onRatingChange }) => {
-    const [rating, setRating] = useState(0);
+    const [rating, setRating] = useState(5);
 
     const handleRating = (star) => {
         setRating(star);
@@ -43,10 +42,81 @@ const LeaveReviewScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
     const { order, product } = route.params;
-
     const [rating, setRating] = useState(0);
     const [comment, setComment] = useState('');
     const [image, setImage] = useState(null);
+
+    const addToCart = async (productId, selectedSize, quantity) => {
+        try {
+            const userId = await AsyncStorage.getItem('userId');
+            if (!userId || !selectedSize) {
+                Alert.alert('Please select product size');
+                return;
+            }
+
+            const productSnapshot = await firestore().collection('Products').doc(productId).get();
+            if (!productSnapshot.exists) {
+                console.warn(`Product with ID ${productId} not found`);
+                return;
+            }
+
+            const productData = productSnapshot.data();
+            const sizeList = productData.sizelist || [];
+
+            const selectedSizeData = sizeList.find(item => item.size === selectedSize);
+            if (!selectedSizeData) {
+                console.warn(`Size ${selectedSize} not available for product ID ${productId}`);
+                return;
+            }
+
+            const stock = selectedSizeData.quantity;
+            if (stock <= 0) {
+                console.warn(`Size ${selectedSize} is out of stock for product ID ${productId}`);
+                return;
+            }
+
+            const cartRef = firestore().collection('Cart');
+            const cartItem = {
+                userId,
+                productId,
+                size: selectedSize,
+                quantity: quantity,
+                createdAt: firestore.FieldValue.serverTimestamp(),
+            };
+
+            const existingCartItemSnapshot = await cartRef
+                .where('userId', '==', userId)
+                .where('productId', '==', productId)
+                .where('size', '==', selectedSize)
+                .limit(1)
+                .get();
+
+            let cartId;
+            if (!existingCartItemSnapshot.empty) {
+                const existingCartItem = existingCartItemSnapshot.docs[0];
+                cartId = existingCartItem.id;
+                const newQuantity = existingCartItem.data().quantity + 1;
+
+                if (newQuantity > stock) {
+                    console.warn(`The number of products in the cart exceeds the inventory quantity for product ID ${productId}.`);
+                    return;
+                }
+
+                await cartRef.doc(cartId).update({ quantity: newQuantity });
+            } else {
+                const newCartDoc = await cartRef.add(cartItem);
+                cartId = newCartDoc.id;
+            }
+
+            await firestore().collection('users').doc(userId).update({
+                cartlist: firestore.FieldValue.arrayUnion(cartId),
+            });
+
+            console.log(`Product ID ${productId} (Size: ${selectedSize}) added to cart.`);
+        } catch (error) {
+            console.error(`Error adding product ID ${productId} to cart: `, error);
+        }
+    };
 
     const addReviewToDatabase = async () => {
         try {
@@ -123,6 +193,10 @@ const LeaveReviewScreen = () => {
     };
 
     const handleLeaveReview = async () => {
+        if (comment.trim().length > 200) {
+            Alert.alert("Comment too long", "Please keep comments under 200 words.");
+            return;
+        }
         try {
             await addReviewToDatabase();
             await updateProductRating();
@@ -133,6 +207,7 @@ const LeaveReviewScreen = () => {
             console.error("Error leaving review:", error);
         }
     };
+
 
     // Cập nhật hàm pickImage để chuyển ảnh thành Base64
     const pickImage = async () => {
@@ -181,15 +256,18 @@ const LeaveReviewScreen = () => {
                         buttonText: 'Reorder',
                         key: `${order.id}_${product.productId}`,
                     }]}
-
-                    onClickButton={(orderItem) => {
-                        if (orderItem.buttonText === 'Reorder') {
-                            navigation.navigate('ProductDetail', { productId: orderItem.productId });
-                        } else {
-                            handleLeaveReview();
+                    onClickButton={async () => {
+                        try {
+                            // Chỉ thêm sản phẩm đang được đánh giá vào giỏ hàng
+                            await addToCart(product.productId, product.size, product.quantity);
+                            navigation.navigate('Cart'); // Điều hướng sang giỏ hàng
+                        } catch (error) {
+                            console.error('Error while reordering product:', error);
+                            Alert.alert('Failed to reorder product. Please try again.');
                         }
                     }}
                 />
+
 
                 <Separator />
                 <Text style={styles.textQuestion}>How is your Order</Text>

@@ -12,15 +12,14 @@ const OrderCard = ({ productImage, productName, size, quantity, price, onClickBu
       />
       <View style={styles.productInfo}>
         <Text style={styles.productName}>{productName}</Text>
-        <Text style={styles.productDetails}>Size: {size} | Qty: {quantity}pcs</Text>
-        <Text style={styles.price}>${price}</Text>
+        <Text style={styles.productDetails}>Size: {size} | Qty: {quantity}</Text>
+        <Text style={styles.price}>${price.toFixed(2)}</Text>
       </View>
-
-      {buttonText !== "" ? (
+      {buttonText && (
         <TouchableOpacity style={styles.button} onPress={onClickButton}>
           <Text style={styles.buttonText}>{buttonText}</Text>
         </TouchableOpacity>
-      ) : null}
+      )}
     </View>
   );
 };
@@ -29,13 +28,11 @@ const styles = StyleSheet.create({
   cardContainer: {
     flexDirection: 'row',
     backgroundColor: Colors.White,
-    padding: 8,
+    padding: 10,
     borderRadius: 8,
-    marginBottom: 8,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: Colors.LightGray,
-    justifyContent: 'space-between',
-    minHeight: 70,
     alignItems: 'center',
   },
   productImage: {
@@ -51,7 +48,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontFamily: Fonts.interBold,
     color: Colors.Black,
-    fontWeight: '600',
     marginBottom: 4,
   },
   productDetails: {
@@ -63,23 +59,20 @@ const styles = StyleSheet.create({
   price: {
     fontSize: 16,
     fontFamily: Fonts.interBold,
-    fontWeight: 'bold',
-    color: Colors.Black,        
+    color: Colors.Black,
   },
   button: {
-    backgroundColor: '#6A4B3D',
+    backgroundColor: Colors.Brown,
     paddingVertical: 6,
-    paddingHorizontal: 8,
+    paddingHorizontal: 12,
     borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
-    maxHeight: 30,
-    alignSelf: 'center',
   },
   buttonText: {
     color: '#fff',
-    fontWeight: '600',
     fontSize: 14,
+    fontWeight: 'bold',
   },
 });
 
