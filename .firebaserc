@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "fashionstore-3d195"
-  }
+    "default": "fashionstore-3d195",
+    "staging": "fashionstore-3d195"
+  },
+  "targets": {},
+  "etags": {}
 }

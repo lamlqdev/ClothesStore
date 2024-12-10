@@ -111,6 +111,7 @@ const PaymentScreen = () => {
         console.log('Handling order success...');
         try {
             const amount = totalAmount;
+            const orderStatus = selectedOption === 'paypal' ? 'Active' : 'Waiting for payment';
 
             let paymentMethod;
             switch (selectedOption) {
@@ -130,7 +131,7 @@ const PaymentScreen = () => {
             const orderData = {
                 address: selectedAddress,
                 phone: selectedPhone,
-                orderStatus: 'Waiting for payment', // Changed from 'Waiting for payment' since PayPal payment is completed
+                orderStatus: orderStatus,
                 orderTime: firestore.FieldValue.serverTimestamp(),
                 total: amount,
                 userId: userId,
@@ -357,21 +358,22 @@ const PaymentScreen = () => {
         }
     };
 
-    const handlePaymentSuccess = async (captureResult) => {
+    const handlePaymentSuccess = async (captureResult, paypalOrderId) => {
         try {
             console.log('Processing successful payment...', captureResult);
-    
-            const orderId = captureResult.id || paymentId;  // Lấy ID từ captureResult hoặc paymentId
     
             // Cập nhật trạng thái đơn hàng trong Firestore
             await firestore()
                 .collection('Orders')
-                .doc(orderId)
+                .doc(paypalOrderId) // Dùng paypalOrderId để tìm và cập nhật đơn hàng
                 .update({ 
                     orderStatus: 'Active',
-                    updatedTime: firestore.FieldValue.serverTimestamp()
+                    updatedTime: firestore.FieldValue.serverTimestamp(),
                 });
     
+            console.log(`Order ${paypalOrderId} updated to Active`);
+    
+            // Chuyển đến màn hình PaymentSuccess
             navigation.reset({
                 index: 0,
                 routes: [{ name: 'PaymentSuccess' }],
@@ -380,20 +382,18 @@ const PaymentScreen = () => {
             console.error('Payment Success Handler Error:', error);
             Alert.alert('Error', 'Payment completed but failed to process order. Please contact support.');
         }
-    };    
+    };       
     
     const handleWebViewNavigationStateChange = async (event) => {
         console.log('WebView Navigation:', event.url);
     
         if (event.url.startsWith('clothesstore://payment-success')) {
+            const queryParams = getQueryParams(event.url);
+            const token = queryParams.token;
+            const payerId = queryParams.PayerID;
     
+            console.log('WebView Deep Link Params:', { token, payerId });
             try {
-                const queryParams = getQueryParams(event.url);
-                const token = queryParams.token;
-                const payerId = queryParams.PayerID;
-    
-                console.log('WebView Deep Link Params:', { token, payerId });
-    
                 const orderDetails = await getOrderDetails(token);
                 
                 console.log('Order Details Status:', orderDetails.status);
@@ -404,7 +404,8 @@ const PaymentScreen = () => {
                     console.log('Capture Result Full:', JSON.stringify(captureResult, null, 2));
     
                     if (captureResult.status === 'COMPLETED') {
-                        await handlePaymentSuccess(captureResult);
+                        const paypalOrderId = token; // Sử dụng token làm paypalOrderId
+                        await handlePaymentSuccess(captureResult, paypalOrderId);
                     } else {
                         throw new Error(`Capture failed: ${captureResult.status}`);
                     }
@@ -416,7 +417,10 @@ const PaymentScreen = () => {
                 Alert.alert('Payment Error', 'Detailed error: ' + error.message);
                 navigation.goBack();
             }
-        }
+        } else if (event.url.startsWith('clothesstore://payment-cancel')) {
+            console.log('Payment cancelled by user');
+            navigation.goBack();
+        }  
     };           
 
     return (
