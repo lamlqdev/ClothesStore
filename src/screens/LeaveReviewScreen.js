@@ -42,7 +42,7 @@ const LeaveReviewScreen = () => {
     const navigation = useNavigation();
     const route = useRoute();
     const { order, product } = route.params;
-    const [rating, setRating] = useState(0);
+    const [rating, setRating] = useState(5);
     const [comment, setComment] = useState('');
     const [image, setImage] = useState(null);
 

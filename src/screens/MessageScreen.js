@@ -84,7 +84,7 @@ const MessageScreen = () => {
 
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
-      <Header title="ChatBox" onBackPress={() => navigation.goBack()} />
+      <Header title="Chat Bot" onBackPress={() => navigation.goBack()} />
 
       <FlatList
         data={messages}

@@ -31,19 +31,60 @@ exports.checkAndCancelOrders = onSchedule("0 * * * *", async (event) => {
       return;
     }
 
-    // Batch update to cancel orders
+    // Batch update to cancel orders and update product quantities
     const batch = db.batch();
-    ordersSnapshot.forEach((doc) => {
-      batch.update(doc.ref, { orderStatus: "Canceled" });
-    });
+    const updates = [];
 
-    // Commit the batch update
+    for (const doc of ordersSnapshot.docs) {
+      const orderData = doc.data();
+
+      // Ensure the order has products to process
+      if (orderData.products && Array.isArray(orderData.products)) {
+        for (const product of orderData.products) {
+          const { productId, size, quantity } = product;
+
+          if (productId && size && quantity) {
+            // Push an update for each product size to increase quantity
+            updates.push(
+              (async () => {
+                const productRef = db.collection("Products").doc(productId);
+                const productDoc = await productRef.get();
+
+                if (productDoc.exists) {
+                  const productData = productDoc.data();
+                  const updatedSizelist = productData.sizelist.map((item) => {
+                    if (item.size === size) {
+                      return { ...item, quantity: item.quantity + quantity };
+                    }
+                    return item;
+                  });
+
+                  // Update the product in Firestore
+                  await productRef.update({ sizelist: updatedSizelist });
+                } else {
+                  logger.warn(`Product with ID ${productId} not found.`);
+                }
+              })()
+            );
+          }
+        }
+      }
+
+      // Mark the order as canceled
+      batch.update(doc.ref, { orderStatus: "Canceled" });
+    }
+
+    // Wait for all product updates to complete
+    await Promise.all(updates);
+
+    // Commit the batch update for orders
     await batch.commit();
-    logger.log(`Canceled ${ordersSnapshot.size} overdue orders successfully.`);
+    logger.log(`Canceled ${ordersSnapshot.size} overdue orders and updated product quantities successfully.`);
   } catch (error) {
     logger.error("Error canceling overdue orders:", error);
   }
 });
+
 
 
 
