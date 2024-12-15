@@ -133,7 +133,7 @@ const PaymentScreen = () => {
                 phone: selectedPhone,
                 orderStatus: orderStatus,
                 orderTime: firestore.FieldValue.serverTimestamp(),
-                total: amount,
+                total: Number(amount),
                 userId: userId,
                 appTransId: appTransId,
                 paypalOrderId: selectedOption === 'paypal' ? orderId : null, // Chỉ lưu orderId nếu là PayPal
