@@ -161,8 +161,6 @@ const AddAddressScreen = ({ navigation }) => {
       ward: selectedWardData?.full_name,
       city: selectedCityData?.full_name,
       province: selectedProvinceData?.full_name,
-      latitude: region.latitude,
-      longitude: region.longitude,
     };
 
     try {
