@@ -6,7 +6,7 @@ import { spacing } from '../constants/dimensions';
 import ProductCard from '../components/ProductCard';
 import { useNavigation } from '@react-navigation/native';
 import firestore from '@react-native-firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../firebaseConfig';
 import { useFocusEffect } from '@react-navigation/native';
 
 const WishScreen = () => {
@@ -17,8 +17,8 @@ const WishScreen = () => {
 
   useEffect(() => {
     const getUserId = async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setUserId(id);
+      const user = auth.currentUser;
+      setUserId(user.uid);
     };
     getUserId();
   }, []);

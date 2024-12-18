@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../firebaseConfig';
 import Header from '../components/Header';
 
 const AddPhoneScreen = ({ navigation }) => {
@@ -11,8 +11,8 @@ const AddPhoneScreen = ({ navigation }) => {
 
   useEffect(() => {
     const fetchUserId = async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setUserId(id);
+      const user = auth.currentUser;
+      setUserId(user.uid);
     };
     fetchUserId();
   }, []);

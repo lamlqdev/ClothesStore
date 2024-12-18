@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, ScrollView, Alert, StyleSheet } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import firestore from '@react-native-firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../firebaseConfig'; 
 import { Colors } from '../constants/colors';
 import Header from '../components/Header';
 import { useFocusEffect } from '@react-navigation/native'; // Dùng useFocusEffect để reload lại dữ liệu khi quay lại màn hình
@@ -18,8 +18,10 @@ const MyProfileScreen = ({ navigation }) => {
   useFocusEffect(
     React.useCallback(() => {
       const getUserData = async () => {
-        const userId = await AsyncStorage.getItem('userId');
-        if (userId) {
+        const user = auth.currentUser; // Lấy user hiện tại từ Firebase Authentication
+        if (user) {
+          const userId = user.uid; // Lấy userId từ Firebase Authentication
+
           const userDoc = await firestore().collection('users').doc(userId).get();
           if (userDoc.exists) {
             setName(userDoc.data().name || '');
@@ -44,17 +46,19 @@ const MyProfileScreen = ({ navigation }) => {
           }
         }
       };
+
       getUserData();
     }, [])
   );
 
   const handleSaveChanges = async () => {
-    const userId = await AsyncStorage.getItem('userId');
-    if (!userId) {
-      Alert.alert('Error', 'User ID not found.');
+    const user = auth.currentUser; // Lấy user hiện tại từ Firebase Authentication
+    if (!user) {
+      Alert.alert('Error', 'User not found.');
       return;
     }
 
+    const userId = user.uid; // Lấy userId từ Firebase Authentication
     try {
       await firestore().collection('users').doc(userId).update({
         name,

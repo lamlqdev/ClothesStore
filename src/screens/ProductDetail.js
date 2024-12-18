@@ -15,7 +15,7 @@ import ProductInfor from '../components/ProductInfor';
 import SelectSize from '../components/SizeSelector';
 import AddToCartButton from '../components/AddToCart';
 import firestore from '@react-native-firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../firebaseConfig';
 
 const ProductDetail = ({ route, navigation }) => {
   const { productId } = route.params;
@@ -30,8 +30,8 @@ const ProductDetail = ({ route, navigation }) => {
 
   useEffect(() => {
     const fetchUserId = async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setUserId(id);
+      const user = auth.currentUser;
+      setUserId(user.uid);
     };
 
     const fetchProduct = async () => {

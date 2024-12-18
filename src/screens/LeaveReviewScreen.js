@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Image } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { Colors } from '../constants/colors';
 import Header from '../components/Header';
@@ -11,32 +10,7 @@ import { Fonts } from '../constants/fonts';
 import ReviewInput from '../components/ReviewInput';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import firestore from '@react-native-firebase/firestore';
-
-const RatingStars = ({ onRatingChange }) => {
-    const [rating, setRating] = useState(5);
-
-    const handleRating = (star) => {
-        setRating(star);
-        onRatingChange(star);
-    };
-
-    return (
-        <View>
-            <Text style={styles.textContainer}>Your overall rating</Text>
-            <View style={styles.starsContainer}>
-                {[1, 2, 3, 4, 5].map((star) => (
-                    <TouchableOpacity key={star} onPress={() => handleRating(star)} style={styles.starButton}>
-                        <Icon
-                            name={star <= rating ? 'star' : 'star-o'}
-                            size={32}
-                            color={star <= rating ? '#F5A623' : '#ccc'}
-                        />
-                    </TouchableOpacity>
-                ))}
-            </View>
-        </View>
-    );
-};
+import RatingStars from '../components/RatingStar';
 
 const LeaveReviewScreen = () => {
     const navigation = useNavigation();
@@ -48,7 +22,7 @@ const LeaveReviewScreen = () => {
 
     const addToCart = async (productId, selectedSize, quantity) => {
         try {
-            const userId = await AsyncStorage.getItem('userId');
+            const userId = order.userId; // Lấy userId từ order
             if (!userId || !selectedSize) {
                 Alert.alert('Please select product size');
                 return;
@@ -120,7 +94,7 @@ const LeaveReviewScreen = () => {
 
     const addReviewToDatabase = async () => {
         try {
-            const userId = await AsyncStorage.getItem('userId');
+            const userId = order.userId;
             if (!userId) {
                 console.error('UserId is not available');
                 return;
@@ -144,19 +118,25 @@ const LeaveReviewScreen = () => {
 
     const updateProductRating = async () => {
         const productRef = firestore().collection('Products').doc(product.productId);
+    
         await firestore().runTransaction(async transaction => {
             const productDoc = await transaction.get(productRef);
             if (!productDoc.exists) throw new Error('Product does not exist.');
-
-            const { rating: currentRating, sale } = productDoc.data();
-            const updatedRating = ((currentRating * sale + rating) / (sale + 1)).toFixed(1);
-
+    
+            const { rating: currentRating = 0, numberofreviews = 0 } = productDoc.data();
+    
+            // Tính toán xếp hạng mới
+            const updatedRating = ((currentRating * numberofreviews + rating) / (numberofreviews + 1)).toFixed(1);
+    
+            // Cập nhật giá trị mới vào Firestore
             transaction.update(productRef, {
-                rating: parseFloat(updatedRating),
-                sale: sale + 1,
+                rating: parseFloat(updatedRating), // Đảm bảo rating là số thực
+                numberofreviews: numberofreviews + 1, // Tăng số lượng review lên 1
             });
         });
     };
+    
+    
 
     const updateOrderProductReviewStatus = async () => {
         const orderRef = firestore().collection('Orders').doc(order.id);
@@ -365,13 +345,5 @@ const styles = StyleSheet.create({
         fontSize: 14,
         textAlign: 'center',
         marginTop: 10,
-    },
-    starsContainer: {
-        flexDirection: 'row',
-        justifyContent: 'center',
-        marginVertical: 10,
-    },
-    starButton: {
-        marginHorizontal: 15,
     },
 });

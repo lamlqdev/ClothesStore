@@ -4,7 +4,7 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import Icon2 from 'react-native-vector-icons/Ionicons';
 import Icon3 from 'react-native-vector-icons/FontAwesome6';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../firebaseConfig';
 import Header from '../components/Header';
 import firestore from '@react-native-firebase/firestore';
 import WebView from 'react-native-webview';
@@ -13,7 +13,6 @@ import CryptoJS from 'crypto-js';
 import { getQueryParams } from '../../App';
 
 const { PayZaloBridge } = NativeModules;
-const payZaloBridgeEmitter = new NativeEventEmitter(PayZaloBridge);
 
 const PaymentScreen = () => {
     const navigation = useNavigation();
@@ -50,31 +49,11 @@ const PaymentScreen = () => {
         fetchExchangeRate();
 
         const fetchUserId = async () => {
-            try {
-                const id = await AsyncStorage.getItem('userId');
-                setUserId(id);
-                console.log('Fetched User ID:', id);
-            } catch (error) {
-                console.error('Error fetching user ID:', error);
-                Alert.alert('Error', 'Failed to fetch user ID');
-            }
+            const user = auth.currentUser;
+            setUserId(user.uid);
         };
         fetchUserId();
 
-        const subscription = payZaloBridgeEmitter.addListener(
-            'EventPayZalo',
-            (data) => {
-                console.log('EventPayZalo data:', data);
-                if (data.returnCode === 1) {
-                    Alert.alert('Payment Successful');
-                } else {
-                    Alert.alert('Payment Failed', `Error Code: ${data.returnCode}`);
-                    console.error('Payment Error:', data);
-                }
-            }
-        );
-
-        return () => subscription.remove();
     }, []);
 
     const handleConfirmPayment = async () => {
@@ -223,9 +202,9 @@ const PaymentScreen = () => {
             const orderData = await createZaloPayOrder(appTransId); // Pass appTransId to createZaloPayOrder
             if (orderData.success) {
                 setZpTransToken(orderData.zp_trans_token);
-                console.log('Initiating ZaloPay payment with token:', orderData.zp_trans_token);
+                console.log('Initiating ZaloPay payment with token:', zpTransToken);
 
-                PayZaloBridge.payOrder(orderData.zp_trans_token);
+                PayZaloBridge.payOrder(zpTransToken);
 
                 navigation.navigate('PaymentSuccess');
                 return { success: true };
@@ -360,18 +339,18 @@ const PaymentScreen = () => {
     const handlePaymentSuccess = async (captureResult) => {
         try {
             console.log('Processing successful payment...', captureResult);
-    
+
             const orderId = captureResult.id || paymentId;  // Lấy ID từ captureResult hoặc paymentId
-    
+
             // Cập nhật trạng thái đơn hàng trong Firestore
             await firestore()
                 .collection('Orders')
                 .doc(orderId)
-                .update({ 
+                .update({
                     orderStatus: 'Active',
                     updatedTime: firestore.FieldValue.serverTimestamp()
                 });
-    
+
             navigation.reset({
                 index: 0,
                 routes: [{ name: 'PaymentSuccess' }],
@@ -380,29 +359,29 @@ const PaymentScreen = () => {
             console.error('Payment Success Handler Error:', error);
             Alert.alert('Error', 'Payment completed but failed to process order. Please contact support.');
         }
-    };    
-    
+    };
+
     const handleWebViewNavigationStateChange = async (event) => {
         console.log('WebView Navigation:', event.url);
-    
+
         if (event.url.startsWith('clothesstore://payment-success')) {
-    
+
             try {
                 const queryParams = getQueryParams(event.url);
                 const token = queryParams.token;
                 const payerId = queryParams.PayerID;
-    
+
                 console.log('WebView Deep Link Params:', { token, payerId });
-    
+
                 const orderDetails = await getOrderDetails(token);
-                
+
                 console.log('Order Details Status:', orderDetails.status);
-    
+
                 if (orderDetails.status === 'APPROVED') {
                     const captureResult = await captureOrder(token);
-    
+
                     console.log('Capture Result Full:', JSON.stringify(captureResult, null, 2));
-    
+
                     if (captureResult.status === 'COMPLETED') {
                         await handlePaymentSuccess(captureResult);
                     } else {
@@ -417,7 +396,7 @@ const PaymentScreen = () => {
                 navigation.goBack();
             }
         }
-    };           
+    };
 
     return (
         <View style={styles.container}>

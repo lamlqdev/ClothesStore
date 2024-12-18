@@ -27,7 +27,7 @@ import TrackOrder from '../screens/TrackOrderScreen';
 import LeaveReviewScreen from '../screens/LeaveReviewScreen';
 import ProductDetail from '../screens/ProductDetail';
 import FilterCategory from '../screens/FilterCategoryScreen';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../firebaseConfig';
 
 const Stack = createStackNavigator();
 
@@ -35,15 +35,16 @@ const AppNavigator = () => {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
-    const checkLoginStatus = async () => {
-      const userId = await AsyncStorage.getItem('userId');
-      if (userId) {
+    // Lắng nghe trạng thái đăng nhập
+    const unsubscribe = auth.onAuthStateChanged(user => {
+      if (user) {
         setIsLoggedIn(true);
       } else {
         setIsLoggedIn(false);
       }
-    };
-    checkLoginStatus();
+    });
+
+    return () => unsubscribe(); // Hủy lắng nghe khi component unmount
   }, []);
 
   const handleLogin = () => {

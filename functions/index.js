@@ -1,89 +1,87 @@
-// Import the necessary modules
-const { onSchedule } = require("firebase-functions/v2/scheduler");
-const { logger } = require("firebase-functions");
-const admin = require("firebase-admin");
+const functions = require('firebase-functions');
+const admin = require('firebase-admin');
+const CryptoJS = require('crypto-js');
 
-// Initialize Firebase Admin SDK
+// Khởi tạo Firebase Admin SDK
 admin.initializeApp();
 
-// Get the Firestore database instance
-const db = admin.firestore();
+const config = {
+  key2: "trMrHtvjo6myautxDUiAcYsVtaeQ8nhf"
+};
 
-// Define the scheduled function using onSchedule
-exports.checkAndCancelOrders = onSchedule("0 * * * *", async (event) => {
+exports.handleZaloPayCallback = functions.https.onRequest(async (req, res) => {
+  let result = {};
+
   try {
-    logger.log("Scheduled function checkAndCancelOrders started.");
+    // Lấy dữ liệu từ request body
+    const dataStr = req.body.data;
+    const reqMac = req.body.mac;
 
-    // Get the current time and calculate 3 days ago
-    const now = admin.firestore.Timestamp.now();
-    const threeDaysAgo = now.toDate(); // Convert to JavaScript Date
-    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3); // Subtract 3 days
-
-    // Fetch orders that need to be canceled
-    const ordersSnapshot = await db
-      .collection("Orders")
-      .where("orderStatus", "==", "Waiting for payment")
-      .where("orderTime", "<=", threeDaysAgo)
-      .get();
-
-    if (ordersSnapshot.empty) {
-      logger.log("No orders to cancel.");
-      return;
+    // Kiểm tra dữ liệu hợp lệ
+    if (!dataStr || !reqMac) {
+      result = {
+        return_code: -1,
+        return_message: "Invalid request data or MAC"
+      };
+      return res.status(400).json(result);
     }
 
-    // Batch update to cancel orders and update product quantities
-    const batch = db.batch();
-    const updates = [];
+    // Tạo MAC để xác minh tính toàn vẹn dữ liệu
+    const mac = CryptoJS.HmacSHA256(dataStr, config.key2).toString(CryptoJS.enc.Hex);
+    console.log("Generated MAC =", mac);
 
-    for (const doc of ordersSnapshot.docs) {
-      const orderData = doc.data();
-
-      // Ensure the order has products to process
-      if (orderData.products && Array.isArray(orderData.products)) {
-        for (const product of orderData.products) {
-          const { productId, size, quantity } = product;
-
-          if (productId && size && quantity) {
-            // Push an update for each product size to increase quantity
-            updates.push(
-              (async () => {
-                const productRef = db.collection("Products").doc(productId);
-                const productDoc = await productRef.get();
-
-                if (productDoc.exists) {
-                  const productData = productDoc.data();
-                  const updatedSizelist = productData.sizelist.map((item) => {
-                    if (item.size === size) {
-                      return { ...item, quantity: item.quantity + quantity };
-                    }
-                    return item;
-                  });
-
-                  // Update the product in Firestore
-                  await productRef.update({ sizelist: updatedSizelist });
-                } else {
-                  logger.warn(`Product with ID ${productId} not found.`);
-                }
-              })()
-            );
-          }
-        }
-      }
-
-      // Mark the order as canceled
-      batch.update(doc.ref, { orderStatus: "Canceled" });
+    if (reqMac !== mac) {
+      result = {
+        return_code: -1,
+        return_message: "MAC mismatch"
+      };
+      return res.status(401).json(result);
     }
 
-    // Wait for all product updates to complete
-    await Promise.all(updates);
+    // Chuyển dataStr sang JSON
+    const dataJson = JSON.parse(dataStr);
+    const appTransId = dataJson["app_trans_id"];
 
-    // Commit the batch update for orders
-    await batch.commit();
-    logger.log(`Canceled ${ordersSnapshot.size} overdue orders and updated product quantities successfully.`);
-  } catch (error) {
-    logger.error("Error canceling overdue orders:", error);
+    console.log("Searching for order with appTransId =", appTransId);
+
+    // Truy vấn Firestore để tìm đơn hàng có appTransId
+    const ordersRef = admin.firestore().collection('Orders');
+    const snapshot = await ordersRef.where('appTransId', '==', appTransId).limit(1).get();
+
+    if (snapshot.empty) {
+      console.log("No matching order found for appTransId:", appTransId);
+      result = {
+        return_code: -1,
+        return_message: "Order not found"
+      };
+      return res.status(404).json(result);
+    }
+
+    // Cập nhật trạng thái đơn hàng
+    const orderDoc = snapshot.docs[0];
+    await orderDoc.ref.update({
+      orderStatus: 'Active',
+      updateTime: admin.firestore.FieldValue.serverTimestamp()
+    });
+
+    console.log("Order updated successfully for appTransId =", appTransId);
+
+    result = {
+      return_code: 1,
+      return_message: "Success"
+    };
+  } catch (ex) {
+    console.error("Error handling ZaloPay callback:", ex);
+    result = {
+      return_code: 0,
+      return_message: "Error processing request: " + ex.message
+    };
+    return res.status(500).json(result);
   }
+
+  res.json(result);
 });
+
 
 
 

@@ -6,6 +6,7 @@ import firestore from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CheckBox from '@react-native-community/checkbox';
 import Header from '../components/Header';
+import { auth } from '../firebaseConfig';
 
 const ShippingAddressScreen = ({ navigation, route }) => {
   const [addressList, setAddressList] = useState([]);
@@ -17,8 +18,8 @@ const ShippingAddressScreen = ({ navigation, route }) => {
 
   useEffect(() => {
     const fetchUserId = async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setUserId(id);
+      const user = auth.currentUser;
+      setUserId(user.uid);
     };
 
     const fetchAddresses = () => {
