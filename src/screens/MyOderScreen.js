@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { View, StatusBar, Button, Text, StyleSheet, TouchableOpacity, ActivityIndicator, FlatList, ScrollView } from 'react-native';
+import { View, StatusBar, Alert, Text, StyleSheet, TouchableOpacity, ActivityIndicator, NativeModules, NativeEventEmitter, FlatList, ScrollView } from 'react-native';
 import { useNavigation, useIsFocused } from '@react-navigation/native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../firebaseConfig';
 import Header from '../components/Header';
 import OrderCard from '../components/OrderCard';
 import { Colors } from '../constants/colors';
 import { spacing } from '../constants/dimensions';
 import { Fonts } from '../constants/fonts';
 import firestore from '@react-native-firebase/firestore';
+import { handleZaloPayPayment } from '../services/ZaloPayService';
+
+
 
 const MyOrderScreen = () => {
     const [activeTab, setActiveTab] = useState('all');
@@ -18,19 +21,35 @@ const MyOrderScreen = () => {
     const [allOrders, setAllOrders] = useState([]);
     const [loading, setLoading] = useState(true);
     const navigation = useNavigation();
-    const isFocused = useIsFocused(); // Hook to check if screen is focused
+    const isFocused = useIsFocused();
+    const [exchangeRate, setExchangeRate] = useState(0);
+    const [expandedOrders, setExpandedOrders] = useState({});
 
-    // Get userId from AsyncStorage
+
     const getUserId = async () => {
-        try {
-            const userId = await AsyncStorage.getItem('userId');
-            return userId;
-        } catch (error) {
-            console.error('Failed to get userId from AsyncStorage', error);
+        const user = auth.currentUser; // Get the current logged-in user
+        if (user) {
+            return user.uid; // Return the user's ID
+        } else {
+            console.error('No user is logged in');
             return null;
         }
     };
+    useEffect(() => {
 
+        const fetchExchangeRate = async () => {
+            try {
+                const response = await fetch('https://api.exchangerate-api.com/v4/latest/USD');
+                const data = await response.json();
+                setExchangeRate(data.rates.VND); // Lưu tỷ giá USD/VND vào state
+                console.log('Exchange Rate USD to VND:', data.rates.VND);
+            } catch (error) {
+                console.error('Error fetching exchange rate:', error);
+                Alert.alert('Error', 'Failed to fetch exchange rate');
+            }
+        };
+        fetchExchangeRate();
+    }, []);
     const fetchOrders = async () => {
         setLoading(true);
         const userId = await getUserId();
@@ -46,7 +65,9 @@ const MyOrderScreen = () => {
                 const data = doc.data();
                 return {
                     id: doc.id,
+                    userId: userId,
                     orderStatus: data.orderStatus,
+                    paymentMethod: data.paymentMethod,
                     products: data.products || [],
                     orderTime: data.orderTime.toDate(), // Ensure orderTime is a Date object
                     total: data.total || 0
@@ -120,69 +141,10 @@ const MyOrderScreen = () => {
                 return 'Track Order';
         }
     };
-
-    const renderOrderList = (orders, onClickButton) => {
-        const orderList = orders.map(order => ({
-            ...order,
-            totalAmount: !isNaN(order.total) ? parseFloat(order.total) : 0,
-            key: order.id,
-        }));
-
-        return (
-            <View style={styles.orderListContainer}>
-                {orderList.map(order => (
-                    <View key={order.key} style={styles.orderItemContainer}>
-                        <View style={styles.totalContainer}>
-                            <Text style={styles.orderTotalText}>
-                                Total: ${order.totalAmount.toFixed(2)}
-                            </Text>
-                        </View>
-                        <View style={styles.orderProductsContainer}>
-                            {order.products.map((product, index) => {
-                                if (order.orderStatus === 'Completed' && !product.hasReviewed) {
-                                    return (
-                                        <OrderCard
-                                            key={index}
-                                            productImage={product.productImage}
-                                            productName={product.productName}
-                                            size={product.size}
-                                            quantity={product.quantity}
-                                            price={product.price}
-                                            buttonText="Leave Review"
-                                            onClickButton={() => onClickButton(order, product, 'LeaveReview')}
-                                        />
-                                    );
-                                }
-                                return (
-                                    <OrderCard
-                                        key={index}
-                                        productImage={product.productImage}
-                                        productName={product.productName}
-                                        size={product.size}
-                                        quantity={product.quantity}
-                                        price={product.price}
-                                        buttonText={null}
-                                        onClickButton={null}
-                                    />
-                                );
-                            })}
-                        </View>
-                        <View style={styles.orderActionContainer}>
-                            <TouchableOpacity
-                                style={styles.button}
-                                onPress={() => onClickButton(order, null, getButtonText(order.orderStatus))}
-                            >
-                                <Text style={styles.buttonText}>{getButtonText(order.orderStatus)}</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                ))}
-            </View>
-        );
-    };
+    
     const addToCart = async (productId, selectedSize, quantity) => {
         try {
-            const userId = await AsyncStorage.getItem('userId');
+            const userId = await getUserId();
             if (!userId || !selectedSize) {
                 Alert.alert('Please select product size');
                 return;
@@ -257,17 +219,24 @@ const MyOrderScreen = () => {
             await addToCart(product.productId, product.size, product.quantity);
         }
         navigation.navigate('Cart');
-    };    
-    
+    };
+
     const handleLeaveReview = (order, product) => {
         const orderData = { ...order, orderTime: order.orderTime.toISOString() };
+        console.log('Error', order)
         navigation.navigate('LeaveReview', { order: orderData, product });
     };
-    
+
     const navigateBasedOnOrderStatus = (order) => {
         switch (order.orderStatus) {
             case 'Waiting for payment':
-                navigation.navigate('Payment', { orderId: order.id });
+                if (order.paymentMethod === 'ZaloPay') {
+                    handleZaloPayPayment(order, exchangeRate);
+                    console.log('ZaloPay', order.products) // Gọi thanh toán Zalo Pay
+                }
+                else {
+                    console.log('Error')
+                }
                 break;
             case 'Canceled':
                 handleAddToCartAndNavigate(order);
@@ -276,11 +245,12 @@ const MyOrderScreen = () => {
                 handleAddToCartAndNavigate(order);
                 break;
             case 'Active':
-                navigation.navigate('TrackOrder', { orderId: order.id });
+                navigation.navigate('TrackOrder', { order: { ...order, orderTime: order.orderTime.toISOString() } });
+                console.log('Error')
                 break;
         }
     };
-    
+
     const getOrderData = () => {
         switch (activeTab) {
             case 'all':
@@ -298,14 +268,20 @@ const MyOrderScreen = () => {
                 return {
                     orders: activeOrders,
                     onClickButton: (order) => {
-                        navigation.navigate('TrackOrder', { orderId: order.id });
+                        navigation.navigate('TrackOrder', { order: { ...order, orderTime: order.orderTime.toISOString() } });
                     },
                 };
             case 'waiting for payment':
                 return {
                     orders: waitingOrders,
                     onClickButton: (order) => {
-                        navigation.navigate('Payment', { orderId: order.id });
+                        if (order.paymentMethod === 'ZaloPay') {
+                            handleZaloPayPayment(order, exchangeRate);
+                            console.log('ZaloPay', order.products) // Gọi thanh toán Zalo Pay
+                        }
+                        else {
+                            console.log('Error', order.paymentMethod)
+                        }
                     },
                 };
             case 'completed':
@@ -327,13 +303,95 @@ const MyOrderScreen = () => {
                     },
                 };
             default:
-                return { orders: [], onClickButton: () => {} };
+                return { orders: [], onClickButton: () => { } };
         }
     };
-    
+
 
     const { orders, onClickButton } = getOrderData();
     const groupedOrders = groupOrdersByDateAndTransId(orders);
+
+    const renderOrderList = (orders, onClickButton) => {
+        const toggleExpand = (orderId) => {
+            setExpandedOrders((prev) => ({
+                ...prev,
+                [orderId]: !prev[orderId],
+            }));
+        };
+    
+        const orderList = orders.map(order => ({
+            ...order,
+            totalAmount: !isNaN(order.total) ? parseFloat(order.total) : 0,
+            key: order.id,
+        }));
+    
+        return (
+            <View style={styles.orderListContainer}>
+                {orderList.map(order => {
+                    const isExpanded = expandedOrders[order.key];
+                    const displayedProducts = isExpanded ? order.products : order.products.slice(0, 1);
+    
+                    return (
+                        <View key={order.key} style={styles.orderItemContainer}>
+                            <View style={styles.totalContainer}>
+                                <Text style={styles.orderTotalText}>
+                                    Total: ${order.totalAmount.toFixed(2)}
+                                </Text>
+                            </View>
+    
+                            <View style={styles.orderProductsContainer}>
+                                {displayedProducts.map((product, index) => {
+                                    if (order.orderStatus === 'Completed' && !product.hasReviewed) {
+                                        return (
+                                            <OrderCard
+                                                key={index}
+                                                productImage={product.productImage}
+                                                productName={product.productName}
+                                                size={product.size}
+                                                quantity={product.quantity}
+                                                price={product.price}
+                                                buttonText="Leave Review"
+                                                onClickButton={() => onClickButton(order, product, 'LeaveReview')}
+                                            />
+                                        );
+                                    }
+                                    return (
+                                        <OrderCard
+                                            key={index}
+                                            productImage={product.productImage}
+                                            productName={product.productName}
+                                            size={product.size}
+                                            quantity={product.quantity}
+                                            price={product.price}
+                                            buttonText={null}
+                                            onClickButton={null}
+                                        />
+                                    );
+                                })}
+                            </View>
+    
+                            {order.products.length > 1 && (
+                                <TouchableOpacity onPress={() => toggleExpand(order.key)} style={styles.showMoreButton}>
+                                    <Text style={styles.showMoreText}>
+                                        {isExpanded ? 'Show Less' : 'Show More'}
+                                    </Text>
+                                </TouchableOpacity>
+                            )}
+    
+                            <View style={styles.orderActionContainer}>
+                                <TouchableOpacity
+                                    style={styles.button}
+                                    onPress={() => onClickButton(order, null, getButtonText(order.orderStatus))}
+                                >
+                                    <Text style={styles.buttonText}>{getButtonText(order.orderStatus)}</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    );
+                })}
+            </View>
+        );
+    };
 
     return (
         <View style={styles.container}>
@@ -469,5 +527,14 @@ const styles = StyleSheet.create({
     },
     orderListContainer: {
         marginBottom: spacing.sm,
+    },
+    showMoreButton: {
+        paddingVertical: 4,
+        alignItems: 'center',
+    },
+    showMoreText: {
+        color: Colors.Brown,
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });

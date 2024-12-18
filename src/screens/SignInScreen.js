@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Image, Alert } from 'react-native';
-import { signInWithEmailAndPassword, signInWithCredential, FacebookAuthProvider, GoogleAuthProvider } from 'firebase/auth';
+import { signInWithEmailAndPassword, signInWithCredential, FacebookAuthProvider, GoogleAuthProvider, signOut } from 'firebase/auth';
 import { auth, db } from '../firebaseConfig';
 import { LoginManager, AccessToken } from 'react-native-fbsdk-next';
 import { GoogleSignin } from '@react-native-google-signin/google-signin';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { firebaseConfig } from '../../config';
 
 const SignInScreen = ({ navigation, onlogin }) => {
   const [email, setEmail] = useState('');
@@ -14,7 +15,7 @@ const SignInScreen = ({ navigation, onlogin }) => {
 
   // Cấu hình Google Sign-In
   GoogleSignin.configure({
-    webClientId: '799913536954-rpaevl1jranhdvkngd9vgibpueda8k8i.apps.googleusercontent.com',
+    webClientId: firebaseConfig.webClientId,
   });
 
   const togglePasswordVisibility = () => {
@@ -38,15 +39,14 @@ const SignInScreen = ({ navigation, onlogin }) => {
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-  
+
       if (user.emailVerified) {
-        await AsyncStorage.setItem('userId', user.uid); // Lưu userId vào AsyncStorage
         Alert.alert("Login Successful", `Welcome back, ${user.email}`);
-        onlogin();
+        // Navigate to Home screen
         navigation.navigate('Home');
       } else {
         Alert.alert("Email Not Verified", "Please verify your email before logging in.");
-        auth.signOut();
+        await signOut(auth); // Đăng xuất nếu email chưa được xác minh
       }
     } catch (error) {
       Alert.alert("Login Failed", error.message);
@@ -66,19 +66,7 @@ const SignInScreen = ({ navigation, onlogin }) => {
       const userCredential = await signInWithCredential(auth, facebookCredential);
       const user = userCredential.user;
 
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (!userDoc.exists()) {
-        await setDoc(doc(db, 'users', user.uid), {
-          userId: user.uid,
-          name: user.displayName || 'User',
-          membershipLevel: 'IdQr4CRJclPYYKP00bDk',
-          imageUrl: 'https://hoanghamobile.com/tin-tuc/wp-content/uploads/2024/03/avatar-trang-68.jpg',
-          wishlist: [],
-          cartlist: [],
-          phonelist: [],
-          addresslist: [],
-        });
-      }
+      await createUserDocument(user);
 
       await AsyncStorage.setItem('userId', user.uid); // Lưu userId
       Alert.alert("Login Successful", `Welcome back, ${user.email}`);
@@ -99,19 +87,7 @@ const SignInScreen = ({ navigation, onlogin }) => {
       const userCredential = await signInWithCredential(auth, googleCredential);
       const user = userCredential.user;
 
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (!userDoc.exists()) {
-        await setDoc(doc(db, 'users', user.uid), {
-          userId: user.uid,
-          name: user.displayName || 'User',
-          membershipLevel: 'IdQr4CRJclPYYKP00bDk',
-          imageUrl: 'https://hoanghamobile.com/tin-tuc/wp-content/uploads/2024/03/avatar-trang-68.jpg',
-          wishlist: [],
-          cartlist: [],
-          phonelist: [],
-          addresslist: [],
-        });
-      }
+      await createUserDocument(user);
 
       await AsyncStorage.setItem('userId', user.uid); // Lưu userId
       Alert.alert("Login Successful", `Welcome back, ${user.email}`);
@@ -119,6 +95,21 @@ const SignInScreen = ({ navigation, onlogin }) => {
       navigation.navigate('Home');
     } catch (error) {
       Alert.alert("Google Login Failed", error.message);
+    }
+  };
+  const createUserDocument = async (user) => {
+    const userDoc = await getDoc(doc(db, 'users', user.uid));
+    if (!userDoc.exists()) {
+      await setDoc(doc(db, 'users', user.uid), {
+        userId: user.uid,
+        name: user.displayName || 'User',
+        membershipLevel: 'IdQr4CRJclPYYKP00bDk',
+        imageUrl: 'https://example.com/default-avatar.jpg',
+        wishlist: [],
+        cartlist: [],
+        phonelist: [],
+        addresslist: [],
+      });
     }
   };
 

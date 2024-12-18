@@ -3,7 +3,7 @@ import { View, Text, FlatList, Image, TouchableOpacity, StyleSheet, TextInput, A
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Header from '../components/Header';
 import searchClient from '../algoliaConfig';  // Cấu hình Algolia Client
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../firebaseConfig';
 import firestore from '@react-native-firebase/firestore';
 
 const SearchResultsScreen = ({ route, navigation }) => {
@@ -23,8 +23,8 @@ const SearchResultsScreen = ({ route, navigation }) => {
 
   useEffect(() => {
     const getUserId = async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setUserId(id);
+      const user = auth.currentUser;
+      setUserId(user.uid);
     };
     getUserId();
   }, []);

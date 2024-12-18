@@ -4,7 +4,7 @@ import Icon from 'react-native-vector-icons/FontAwesome';
 import Header from '../components/Header';
 import { useRoute } from '@react-navigation/native';
 import searchClient from '../algoliaConfig'; // Sử dụng cấu hình Algolia
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../firebaseConfig';
 import firestore from '@react-native-firebase/firestore';
 
 function CategoryScreen({ navigation }) {
@@ -24,11 +24,10 @@ function CategoryScreen({ navigation }) {
   const [userId, setUserId] = useState(null);
   const [wishlist, setWishlist] = useState([]);
 
-  // Lấy userId từ AsyncStorage
   useEffect(() => {
     const getUserId = async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setUserId(id);
+      const user = auth.currentUser;
+      setUserId(user.uid);
     };
     getUserId();
   }, []);
@@ -86,7 +85,7 @@ function CategoryScreen({ navigation }) {
           priceFilter = `price >= ${minPrice} AND price <= ${maxPrice}`;
         }
 
-        const categoryFilter = categoryId ? `categoryId:"${categoryId}"` : '';        const filters = [categoryFilter, genderFilter, ratingFilter, priceFilter].filter(Boolean).join(' AND ');
+        const categoryFilter = categoryId ? `categoryId:"${categoryId}"` : ''; const filters = [categoryFilter, genderFilter, ratingFilter, priceFilter].filter(Boolean).join(' AND ');
         const result = await index.search('', { filters });
 
         console.log('Products found:', result.hits);

@@ -1,24 +1,13 @@
-import { StyleSheet, Text, View } from 'react-native'
-import React from 'react'
-import Header from '../components/Header'
-import { spacing } from '../constants/dimensions'
-import { Colors } from '../constants/colors'
-import OrderList from '../components/OrderList'
-import Separator from '../components/Separator'
-import OrderDetails from '../components/OrderDetail'
-import OrderStatus from '../components/OrderStatus'
+import { StyleSheet, Text, View, TouchableOpacity, FlatList } from 'react-native';
+import React, { useState } from 'react';
+import Header from '../components/Header';
+import { spacing } from '../constants/dimensions';
+import { Colors } from '../constants/colors';
+import OrderList from '../components/OrderList';
+import Separator from '../components/Separator';
+import OrderDetails from '../components/OrderDetail';
+import OrderStatus from '../components/OrderStatus';
 import { useRoute } from '@react-navigation/native';
-
-const activeOrders = [
-  {
-      id: '1',
-      productImage: 'https://thursdayboots.com/cdn/shop/products/1024x1024-Men-Moto-Tobacco-050322-1_1024x1024.jpg?v=1652112663',
-      productName: 'Brown Jacket',
-      size: 'XL',
-      quantity: 10,
-      price: 83.97,
-  },
-]
 
 const statuses = [
   {
@@ -47,54 +36,81 @@ const statuses = [
   },
 ];
 
-const TrackOrderScreen = ({navigation}) => {
-
+const TrackOrderScreen = ({ navigation }) => {
   const route = useRoute();
   const { order } = route.params;
+
   console.log("Received Order:", order);
-  const handleTrackOrder = (item) => {
-    console.log('Tracking order for:', item.productName);
-};
+
+  const [showAllProducts, setShowAllProducts] = useState(false);
+
+  // Chỉ hiển thị một sản phẩm nếu `showAllProducts` là false
+  const displayedProducts = showAllProducts ? order.products : [order.products[0]];
 
   return (
     <View style={styles.container}>
-      <View>
-      <Header title="Track Order" 
-       onBackPress={() => navigation.goBack()}
+      <Header
+        title="Track Order"
+        onBackPress={() => navigation.goBack()}
       />
-      <OrderList
-        orderList={activeOrders.map(order => ({
-            ...order,
-            buttonText: '',
-        }))}
-        
-        onClickButton={handleTrackOrder}
-      />
-      <Separator style={styles.separator}/>
-      <OrderDetails 
-        deliveryDate="03 Sep 2023" 
-        trackingId="TRK452126542" 
-      />
-      <Separator style={styles.separator}/>
-      <OrderStatus statuses={statuses}/>
-      </View>
-      
-    </View>
-  )
-}
 
-export default TrackOrderScreen
+      <FlatList
+        data={displayedProducts}
+        keyExtractor={(item) => item}
+        renderItem={({ item }) => (
+          <OrderList
+            orderList={[{
+              id: item.productId,
+              productImage: item.productImage,
+              productName: item.productName,
+              size: item.size,
+              quantity: item.quantity,
+              price: item.price,
+              buttonText: '',
+            }]}
+            
+          />
+        )}
+        ListFooterComponent={() => (
+          <>
+            {order.products.length > 1 && (
+              <TouchableOpacity onPress={() => setShowAllProducts(!showAllProducts)} style={styles.showMoreButton}>
+                <Text style={styles.showMoreText}>
+                  {showAllProducts ? 'Show Less' : 'Show More'}
+                </Text>
+              </TouchableOpacity>
+            )}
+            <Separator style={styles.separator} />
+            <OrderDetails
+              deliveryDate="03 Sep 2023"
+              trackingId="TRK452126542"
+            />
+            <Separator style={styles.separator} />
+            <OrderStatus statuses={statuses} />
+          </>
+        )}
+      />
+    </View>
+  );
+};
+
+export default TrackOrderScreen;
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    flexDirection: 'column',
     padding: spacing.sm,
     backgroundColor: Colors.White,
-    justifyContent: 'space-between',  
-},
+  },
   separator: {
-    marginTop: 20
-  }
-
-})
+    marginTop: spacing.md,
+  },
+  showMoreButton: {
+    paddingVertical: spacing.xs,
+    alignItems: 'center',
+  },
+  showMoreText: {
+    color: Colors.Brown,
+    fontWeight: 'bold',
+  },
+});

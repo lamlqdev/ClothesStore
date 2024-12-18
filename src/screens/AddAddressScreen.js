@@ -4,7 +4,7 @@ import axios from 'axios';
 import firestore from '@react-native-firebase/firestore';
 import Header from '../components/Header';
 import Mapbox from '@rnmapbox/maps';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../firebaseConfig';
 import { Picker } from '@react-native-picker/picker';
 
 const AddAddressScreen = ({ navigation }) => {
@@ -40,8 +40,8 @@ const AddAddressScreen = ({ navigation }) => {
 
   useEffect(() => {
     const fetchUserId = async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setUserId(id);
+      const user = auth.currentUser;
+      setUserId(user.uid);
     };
 
     const fetchProvinces = async () => {
@@ -179,7 +179,7 @@ const AddAddressScreen = ({ navigation }) => {
 
       Alert.alert('Address added successfully');
       setStreet('');
-      navigation.navigate('ShippingAddress', { refresh: true });
+      navigation.navigate('ShippingAddress', { refresh: true, hideApplyButton: true, hideRadioButton: true });
     } catch (error) {
       console.error('Error adding address:', error);
       Alert.alert('Failed to add address');

@@ -4,7 +4,7 @@ import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/nativ
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Header from '../components/Header';
 import firestore from '@react-native-firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../firebaseConfig';
 
 const CheckoutScreen = () => {
   const navigation = useNavigation();
@@ -18,8 +18,8 @@ const CheckoutScreen = () => {
 
   useEffect(() => {
     const fetchUserId = async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setUserId(id);
+      const user = auth.currentUser;
+      setUserId(user.uid);
     };
 
     fetchUserId();

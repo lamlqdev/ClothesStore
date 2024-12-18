@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native';
 import firestore from '@react-native-firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../firebaseConfig';
 import Header from '../components/Header';
 
 const AddPhoneScreen = ({ navigation }) => {
@@ -11,8 +11,8 @@ const AddPhoneScreen = ({ navigation }) => {
 
   useEffect(() => {
     const fetchUserId = async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setUserId(id);
+      const user = auth.currentUser;
+      setUserId(user.uid);
     };
     fetchUserId();
   }, []);
@@ -63,7 +63,7 @@ const AddPhoneScreen = ({ navigation }) => {
   
       Alert.alert('Phone number added successfully');
       setPhoneNumber(''); // Reset trường nhập sau khi thêm số điện thoại
-      navigation.navigate('ChoosePhone', { refresh: true });
+      navigation.navigate('ChoosePhone', { refresh: true, hideApplyButton: true, hideRadioButton: true });
     } catch (error) {
       console.error('Error adding phone number:', error);
       Alert.alert('Failed to add phone number');

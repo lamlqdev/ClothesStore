@@ -6,6 +6,7 @@ import firestore from '@react-native-firebase/firestore';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import CheckBox from '@react-native-community/checkbox';
 import Header from '../components/Header';
+import { auth } from '../firebaseConfig';
 
 const ShippingAddressScreen = ({ navigation, route }) => {
   const [addressList, setAddressList] = useState([]);
@@ -13,12 +14,14 @@ const ShippingAddressScreen = ({ navigation, route }) => {
   const [defaultAddressIndex, setDefaultAddressIndex] = useState(null); // Chỉ số của địa chỉ mặc định
   const [userId, setUserId] = useState(null);
 
-  const { selectedProducts = [], selectedPhone, hideApplyButton, hideRadioButton } = route.params || {};
+  const { selectedProducts = [], selectedPhone} = route.params || {};
+  const [hideApplyButton, setHideApplyButton] = useState(route.params?.hideApplyButton || false);
+  const [hideRadioButton, setHideRadioButton] = useState(route.params?.hideRadioButton || false);
 
   useEffect(() => {
     const fetchUserId = async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setUserId(id);
+      const user = auth.currentUser;
+      setUserId(user.uid);
     };
 
     const fetchAddresses = () => {
@@ -48,6 +51,14 @@ const ShippingAddressScreen = ({ navigation, route }) => {
     fetchUserId();
     fetchAddresses();
   }, [userId]);
+
+  useEffect(() => {
+    if (route.params) {
+      const { hideApplyButton, hideRadioButton } = route.params;
+      setHideApplyButton(hideApplyButton || false); 
+      setHideRadioButton(hideRadioButton || false); 
+    }
+  }, [route.params]);  
 
   const handleAddressSelect = (index) => {
     setSelectedAddress(index); // Chọn cho lần thanh toán hiện tại
@@ -177,7 +188,9 @@ const ChoosePhoneScreen = ({ navigation, route }) => {
   const [defaultPhoneIndex, setDefaultPhoneIndex] = useState(null);
   const [userId, setUserId] = useState(null);
 
-  const { selectedProducts = [], selectedAddress, hideApplyButton, hideRadioButton } = route.params || {};
+  const { selectedProducts = [], selectedAddress } = route.params || {};
+  const [hideApplyButton, setHideApplyButton] = useState(route.params?.hideApplyButton || false);
+  const [hideRadioButton, setHideRadioButton] = useState(route.params?.hideRadioButton || false);
 
   useEffect(() => {
     const fetchUserId = async () => {
@@ -210,6 +223,14 @@ const ChoosePhoneScreen = ({ navigation, route }) => {
     fetchUserId();
     fetchPhones();
   }, [userId]);
+
+  useEffect(() => {
+    if (route.params) {
+      const { hideApplyButton, hideRadioButton } = route.params;
+      setHideApplyButton(hideApplyButton || false); 
+      setHideRadioButton(hideRadioButton || false); 
+    }
+  }, [route.params]);  
 
   const handlePhoneSelect = (index) => {
     setSelectedPhone(index); // Chọn cho lần thanh toán hiện tại

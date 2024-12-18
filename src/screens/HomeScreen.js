@@ -1,11 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, TextInput, Image, StyleSheet, FlatList, TouchableOpacity, ScrollView } from 'react-native';
+import { View, Text, TextInput, Image, StyleSheet, FlatList, TouchableOpacity, ScrollView, Alert } from 'react-native';
 import Icon from 'react-native-vector-icons/FontAwesome';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5';
 import firestore from '@react-native-firebase/firestore';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useFocusEffect } from '@react-navigation/native';
 import { Colors } from '../constants/colors';
+import { auth } from '../firebaseConfig';
 
 const ITEMS_PER_PAGE = 6;
 
@@ -19,13 +19,13 @@ function HomeScreen({ navigation }) {
   const [currentBannerProductIndex, setCurrentBannerProductIndex] = useState(0);
   const [topProducts, setTopProducts] = useState([]);
 
+  // Lấy thông tin người dùng từ auth
   useEffect(() => {
-    // Lấy userId từ AsyncStorage
-    const getUserId = async () => {
-      const id = await AsyncStorage.getItem('userId');
-      setUserId(id);
-    };
+    const user = auth.currentUser;
+    setUserId(user.uid);
+  }, []);
 
+  useEffect(() => {
     const fetchTopProducts = async () => {
       try {
         const snapshot = await firestore()
@@ -74,20 +74,17 @@ function HomeScreen({ navigation }) {
       return () => unsubscribeCategories();
     };
 
-    getUserId();
     fetchTopProducts();
     fetchCategoriesAndProducts();
 
-    // Đặt Interval để thay đổi sản phẩm banner
     const interval = setInterval(() => {
       setCurrentBannerProductIndex(prevIndex => (prevIndex + 1) % topProducts.length);
     }, 4000);
 
     return () => clearInterval(interval);
+  }, [topProducts.length]);
 
-  }, [topProducts.length]); // UseEffect sẽ chạy lại mỗi khi topProducts thay đổi
-
-  // Lắng nghe sự thay đổi của wishlist
+  // Lấy wishlist khi focus màn hình
   useFocusEffect(
     useCallback(() => {
       const fetchWishlist = async () => {
@@ -106,7 +103,6 @@ function HomeScreen({ navigation }) {
     }, [userId])
   );
 
-  // Thêm hoặc xóa sản phẩm khỏi wishlist
   const toggleWishlist = async (productId) => {
     if (!userId) {
       console.error("User ID not found!");
@@ -120,23 +116,16 @@ function HomeScreen({ navigation }) {
 
       let updatedWishlist;
       if (currentWishlist.includes(productId)) {
-        updatedWishlist = currentWishlist.filter(id => id !== productId); // Xóa sản phẩm
+        updatedWishlist = currentWishlist.filter(id => id !== productId);
       } else {
-        updatedWishlist = [...currentWishlist, productId]; // Thêm sản phẩm
+        updatedWishlist = [...currentWishlist, productId];
       }
 
       await userRef.update({ wishlist: updatedWishlist });
-
-      // Cập nhật wishlist trong state
-      setWishlist((prevWishlist) => {
-        const newWishlist = { ...prevWishlist };
-        if (newWishlist[productId]) {
-          delete newWishlist[productId]; // Nếu đã có thì xóa
-        } else {
-          newWishlist[productId] = true; // Nếu chưa có thì thêm
-        }
-        return newWishlist;
-      });
+      setWishlist(prev => ({
+        ...prev,
+        [productId]: !prev[productId],
+      }));
     } catch (error) {
       console.error("Error updating wishlist: ", error);
     }

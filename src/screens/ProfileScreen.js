@@ -1,14 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import { useFocusEffect } from '@react-navigation/native';
-import { View, Text, Image, StatusBar, StyleSheet, TouchableOpacity, FlatList, Modal, Platform } from 'react-native';
+import { View, Text, Image, StatusBar, StyleSheet, TouchableOpacity, FlatList, Modal, Platform, Alert } from 'react-native';
 import { Colors } from '../constants/colors';
 import Header from '../components/Header';
 import { fontSize, iconSize, spacing } from '../constants/dimensions';
 import Feather from 'react-native-vector-icons/Feather';
 import { Fonts } from '../constants/fonts';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import firestore from '@react-native-firebase/firestore';
 import { launchImageLibrary } from 'react-native-image-picker';
+import { auth } from '../firebaseConfig';
+import { signOut } from 'firebase/auth';
 
 const menuItems = [
     { title: 'My profile', icon: 'user' },
@@ -26,32 +27,25 @@ const ProfileScreen = ({ navigation, onLogout }) => {
 
     useFocusEffect(
         React.useCallback(() => {
-            // Gọi lại hàm fetchUserData mỗi khi trang được hiển thị
             const fetchUserData = async () => {
                 try {
-                    const userId = await AsyncStorage.getItem('userId');
-                    if (userId) {
-                        const userDoc = await firestore().collection('users').doc(userId).get();
+                    const user = auth.currentUser; // Lấy thông tin từ Firebase Auth
+                    if (user) {
+                        const userDoc = await firestore().collection('users').doc(user.uid).get();
                         if (userDoc.exists) {
                             const data = userDoc.data();
-                            setUserName(data.name);
-        
-                            if (data.imageUrl) {
-                                if (data.imageUrl.startsWith('data:image')) {
-                                    setUserImageUrl(data.imageUrl);
-                                } else {
-                                    setUserImageUrl('https://hoanghamobile.com/tin-tuc/wp-content/uploads/2024/03/avatar-trang-68.jpg');
-                                }
-                            } else {
-                                setUserImageUrl('https://hoanghamobile.com/tin-tuc/wp-content/uploads/2024/03/avatar-trang-68.jpg');
-                            }
+                            setUserName(data.name || user.displayName || 'User');
+                            setUserImageUrl(
+                                data.imageUrl ||
+                                'https://hoanghamobile.com/tin-tuc/wp-content/uploads/2024/03/avatar-trang-68.jpg'
+                            );
                         }
                     }
                 } catch (error) {
                     console.error('Error fetching user data:', error);
                 }
             };
-        
+
             fetchUserData();
         }, [])
     );
@@ -85,16 +79,13 @@ const ProfileScreen = ({ navigation, onLogout }) => {
 
     const handleLogout = async () => {
         try {
-            await AsyncStorage.removeItem('userId');
+            await signOut(auth); // Đăng xuất người dùng khỏi Firebase Auth
+            Alert.alert('Success', 'You have been logged out successfully.');
+            navigation.navigate('SignIn'); // Chuyển về màn hình đăng nhập
         } catch (error) {
-            console.error('Failed to logout:', error);
+            console.error('Logout error:', error);
+            Alert.alert('Error', 'Failed to logout. Please try again.');
         }
-
-        if (onLogout) {
-            onLogout();
-        }
-
-        navigation.navigate('SignIn');
     };
 
     const handleChangeImage = async () => {
@@ -126,7 +117,7 @@ const ProfileScreen = ({ navigation, onLogout }) => {
     
             console.log('Base64 Image:', base64Image);
     
-            // Lưu Base64 vào Firestore (hoặc bạn có thể lưu vào trong tài liệu của người dùng)
+            // Lưu Base64 vào Firestore
             const userId = await AsyncStorage.getItem('userId');
             if (userId) {
                 await firestore()

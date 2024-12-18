@@ -3,6 +3,7 @@ import { View, Text, TextInput, ScrollView, TouchableOpacity, StyleSheet } from 
 import Icon from 'react-native-vector-icons/FontAwesome';
 import Header from '../components/Header';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { auth } from '../firebaseConfig';
 
 const MAX_SEARCH_HISTORY = 20;  // Giới hạn tối đa 20 từ khóa
 
@@ -16,15 +17,14 @@ const SearchScreen = ({ navigation }) => {
   const [searchText, setSearchText] = useState('');
   const [recentSearches, setRecentSearches] = useState([]);
 
-  // Lấy userId và lịch sử tìm kiếm từ AsyncStorage
   useEffect(() => {
     const getData = async () => {
-      const id = await AsyncStorage.getItem('userId');  // Lấy userId từ AsyncStorage
+      const user = auth.currentUser;  
       const storedHistory = await AsyncStorage.getItem('searchHistory'); // Lấy lịch sử tìm kiếm từ AsyncStorage
       if (storedHistory) {
         setRecentSearches(JSON.parse(storedHistory));
       }
-      setUserId(id);  // Lưu userId vào state
+      setUserId(user.uid);  // Lưu userId vào state
     };
     getData();
   }, []);  // Chỉ chạy một lần khi component được mount
