@@ -365,25 +365,23 @@ const PaymentScreen = () => {
     
     const handleWebViewNavigationStateChange = async (event) => {
         console.log('WebView Navigation:', event.url);
-
+    
         if (event.url.startsWith('clothesstore://payment-success')) {
-
+            const queryParams = getQueryParams(event.url);
+            const token = queryParams.token;
+            const payerId = queryParams.PayerID;
+    
+            console.log('WebView Deep Link Params:', { token, payerId });
             try {
-                const queryParams = getQueryParams(event.url);
-                const token = queryParams.token;
-                const payerId = queryParams.PayerID;
-
-                console.log('WebView Deep Link Params:', { token, payerId });
-
                 const orderDetails = await getOrderDetails(token);
-
+                
                 console.log('Order Details Status:', orderDetails.status);
-
+    
                 if (orderDetails.status === 'APPROVED') {
                     const captureResult = await captureOrder(token);
-
+    
                     console.log('Capture Result Full:', JSON.stringify(captureResult, null, 2));
-
+    
                     if (captureResult.status === 'COMPLETED') {
                         const paypalOrderId = token; // Sử dụng token làm paypalOrderId
                         await handlePaymentSuccess(captureResult, paypalOrderId);

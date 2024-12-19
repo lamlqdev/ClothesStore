@@ -8,6 +8,7 @@ import Feather from 'react-native-vector-icons/Feather';
 import { Fonts } from '../constants/fonts';
 import firestore from '@react-native-firebase/firestore';
 import { launchImageLibrary } from 'react-native-image-picker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { auth } from '../firebaseConfig';
 import { signOut } from 'firebase/auth';
 
