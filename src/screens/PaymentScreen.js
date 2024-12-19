@@ -203,9 +203,9 @@ const PaymentScreen = () => {
             const orderData = await createZaloPayOrder(appTransId); // Pass appTransId to createZaloPayOrder
             if (orderData.success) {
                 setZpTransToken(orderData.zp_trans_token);
-                console.log('Initiating ZaloPay payment with token:', zpTransToken);
+                console.log('Initiating ZaloPay payment with token:', orderData.zp_trans_token);
 
-                PayZaloBridge.payOrder(zpTransToken);
+                PayZaloBridge.payOrder(orderData.zp_trans_token);
 
                 navigation.navigate('PaymentSuccess');
                 return { success: true };
